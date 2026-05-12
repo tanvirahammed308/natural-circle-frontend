@@ -34,7 +34,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       router.replace("/dashboard");
       return;
     }
-  }, [isAuthenticated, authChecking, user, router]);
+  }, [isAuthenticated, authChecking, user, router,pathname]);
 
   // =========================
   // LOADING

@@ -1,12 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
-import { User } from "./authTypes";
-
-// 🔥 Axios instance (you can move this to lib/axios.ts)
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-  withCredentials: true,
-});
+import api from "@/lib/axios";
+import { User, Address } from "./authTypes";
 
 // ===============================
 // GET CURRENT USER PROFILE
@@ -30,7 +24,11 @@ export const getCurrentUser = createAsyncThunk<User>(
 // ===============================
 export const updateUserProfile = createAsyncThunk<
   User,
-  { name?: string; phone?: string; address?: any }
+  {
+    name?: string;
+    phone?: string;
+    address?: Address;
+  }
 >("auth/updateUserProfile", async (data, thunkAPI) => {
   try {
     const res = await api.put("/users/profile", data);

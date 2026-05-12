@@ -1,5 +1,5 @@
 import axios from "axios";
-import { auth } from "./firbase";
+import { auth } from "./firebase";
 
 
 const api = axios.create({
@@ -7,13 +7,17 @@ const api = axios.create({
   withCredentials: true,
 });
 
-//  Auto attach Firebase token (VERY IMPORTANT)
+// =========================
+// AUTO ATTACH FIREBASE TOKEN
+// =========================
 api.interceptors.request.use(
   async (config) => {
     const user = auth.currentUser;
 
     if (user) {
-      const token = await user.getIdToken();
+      // force refresh token (important for security)
+      const token = await user.getIdToken(true);
+
       config.headers.Authorization = `Bearer ${token}`;
     }
 

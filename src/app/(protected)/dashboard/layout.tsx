@@ -22,21 +22,17 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
   // PROTECT ROUTE (USER ONLY)
   // =========================
   useEffect(() => {
-    if (authChecking) return;
+  if (authChecking) return;
 
-    // ❌ not logged in
-    if (!isAuthenticated || !user) {
-      router.replace("/login");
-      return;
-    }
+  if (!isAuthenticated || !user) {
+    router.replace("/login");
+    return;
+  }
 
-    // ❌ block admin from user dashboard
-    if (user.role === "admin") {
-      router.replace("/admin/dashboard");
-      return;
-    }
-
-  }, [authChecking, isAuthenticated, user, router]);
+  if (user.role === "admin" && pathname.startsWith("/dashboard")) {
+    router.replace("/admin/dashboard");
+  }
+}, [authChecking, isAuthenticated, user, router, pathname]);
 
   // =========================
   // LOADING STATE
