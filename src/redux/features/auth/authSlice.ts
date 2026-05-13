@@ -24,9 +24,8 @@ const initialState: AuthState = {
   isAuthenticated: false,
 };
 
-// =========================
 // SLICE
-// =========================
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -56,9 +55,9 @@ const authSlice = createSlice({
   },
 
   extraReducers: (builder) => {
-    // =========================
+    
     // REGISTER
-    // =========================
+    
     builder.addCase(registerUser.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -75,9 +74,8 @@ const authSlice = createSlice({
       state.error = (action.payload as string) || "Register failed";
     });
 
-    // =========================
     // LOGIN
-    // =========================
+
     builder.addCase(loginUser.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -94,9 +92,7 @@ const authSlice = createSlice({
       state.error = (action.payload as string) || "Login failed";
     });
 
-    // =========================
     // CURRENT USER
-    // =========================
     builder.addCase(getCurrentUser.fulfilled, (state, action) => {
       state.user = action.payload;
       state.isAuthenticated = true;
@@ -109,30 +105,30 @@ const authSlice = createSlice({
       state.authChecking = false;
     });
 
-    // =========================
+    
     // UPDATE PROFILE
-    // =========================
+    
     builder.addCase(updateUserProfile.fulfilled, (state, action) => {
       state.user = action.payload;
     });
 
-    // =========================
+    
     // GET ALL USERS (ADMIN)
-    // =========================
+    
     builder.addCase(getAllUsers.fulfilled, (state, action) => {
       state.users = action.payload || [];
     });
 
-    // =========================
+    
     // GET USER BY ID
-    // =========================
+    
     builder.addCase(getUserById.fulfilled, (state, action) => {
       state.user = action.payload;
     });
 
-    // =========================
+    
     // DELETE USER
-    // =========================
+    
     builder.addCase(deleteUser.fulfilled, (state, action) => {
       state.users = state.users.filter(
         (u) => u._id !== action.payload

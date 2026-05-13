@@ -19,22 +19,20 @@ import {
 } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
+import api from "@/lib/axios"; 
 
+// =========================
 // ZOD SCHEMA
-
-
+// =========================
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
-
   email: z.email("Invalid email address"),
-
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
     .regex(/[A-Z]/, "Must include at least 1 uppercase letter")
     .regex(/[0-9]/, "Must include at least 1 number")
     .regex(/[^A-Za-z0-9]/, "Must include at least 1 special character"),
-
   terms: z.boolean().refine((val) => val === true, {
     message: "You must accept terms & conditions",
   }),
@@ -57,23 +55,36 @@ export default function SignupPage() {
     resolver: zodResolver(signupSchema),
   });
 
-  /* =========================
-     EMAIL SIGNUP
-  ========================= */
+  // =========================
+  // EMAIL SIGNUP (FIREBASE + MONGODB)
+  // =========================
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
 
+      // 1. Firebase user create
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         data.email,
         data.password
       );
 
-      await updateProfile(userCredential.user, {
+      const firebaseUser = userCredential.user;
+
+      // 2. Set display name in Firebase
+      await updateProfile(firebaseUser, {
         displayName: data.name,
       });
 
+      // 3. Send to MongoDB backend
+      await api.post("/auth/register", {
+        firebaseUid: firebaseUser.uid,
+        name: data.name,
+        email: data.email,
+        avatar: "",
+      });
+
+      // 4. Success message
       await Swal.fire({
         icon: "success",
         title: "Success!",
@@ -90,15 +101,25 @@ export default function SignupPage() {
     }
   };
 
-  /* =========================
-     GOOGLE SIGNUP
-  ========================= */
+  // =========================
+  // GOOGLE SIGNUP (FIREBASE + MONGODB)
+  // =========================
   const handleGoogle = async () => {
     try {
       setGoogleLoading(true);
 
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+
+      const user = result.user;
+
+      // Send to MongoDB
+      await api.post("/auth/register", {
+        firebaseUid: user.uid,
+        name: user.displayName || "Google User",
+        email: user.email,
+        avatar: user.photoURL || "",
+      });
 
       await Swal.fire({
         icon: "success",
@@ -118,124 +139,79 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
-      
-      {/* CARD */}
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-2">
 
-        {/* TITLE */}
-        <h1 className="text-2xl font-bold text-center text-gray-800">
+        <h1 className="text-2xl font-bold text-center">
           Create Account
         </h1>
 
-        {/* FORM */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
           {/* NAME */}
-          <div>
-            <input
-              {...register("name")}
-              type="text"
-              placeholder="Full Name"
-              className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.name && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.name.message}
-              </p>
-            )}
-          </div>
+          <input
+            {...register("name")}
+            placeholder="Full Name"
+            className="w-full px-4 py-3 border rounded-lg"
+          />
+          {errors.name && <p className="text-red-500">{errors.name.message}</p>}
 
           {/* EMAIL */}
-          <div>
-            <input
-              {...register("email")}
-              type="email"
-              placeholder="Email"
-              className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.email && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.email.message}
-              </p>
-            )}
-          </div>
+          <input
+            {...register("email")}
+            placeholder="Email"
+            className="w-full px-4 py-3 border rounded-lg"
+          />
+          {errors.email && <p className="text-red-500">{errors.email.message}</p>}
 
           {/* PASSWORD */}
-          <div>
-            <div className="flex items-center border rounded-lg px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500">
-              
-              <input
-                {...register("password")}
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                className="flex-1 bg-transparent outline-none"
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-gray-500 hover:text-blue-600"
-              >
-                {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
-              </button>
-            </div>
-
-            {errors.password && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.password.message}
-              </p>
-            )}
+          <div className="flex items-center border rounded-lg px-4 py-3">
+            <input
+              {...register("password")}
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              className="flex-1 outline-none"
+            />
+            <button type="button" onClick={() => setShowPassword(!showPassword)}>
+              {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+            </button>
           </div>
+
+          {errors.password && (
+            <p className="text-red-500">{errors.password.message}</p>
+          )}
 
           {/* TERMS */}
-          <div>
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input type="checkbox" {...register("terms")} />
-              I agree to terms & conditions
-            </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" {...register("terms")} />
+            I agree to terms
+          </label>
 
-            {errors.terms && (
-              <p className="text-red-500 text-sm mt-1">
-                {errors.terms.message}
-              </p>
-            )}
-          </div>
+          {errors.terms && (
+            <p className="text-red-500">{errors.terms.message}</p>
+          )}
 
-          {/* SUBMIT BUTTON */}
+          {/* SUBMIT */}
           <button
-            type="submit"
             disabled={loading}
-            className="w-full bg-[#7aa209] text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
+            className="w-full bg-[#7AA209] text-white py-3 rounded-lg"
           >
-            {loading ? "Creating Account..." : "Sign Up"}
+            {loading ? "Creating..." : "Sign Up"}
           </button>
         </form>
 
-        {/* DIVIDER */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-gray-300"></div>
-          <span className="text-sm text-gray-400">OR</span>
-          <div className="flex-1 h-px bg-gray-300"></div>
-        </div>
-
-        {/* GOOGLE BUTTON */}
+        {/* GOOGLE */}
         <button
           onClick={handleGoogle}
           disabled={googleLoading}
-          className="w-full flex items-center justify-center gap-2 border py-3 rounded-lg hover:bg-gray-100"
+          className="w-full flex items-center justify-center gap-2 border py-3 rounded-lg"
         >
           <FcGoogle size={22} />
-          {googleLoading ? "Connecting..." : "Continue with Google"}
+          {googleLoading ? "Loading..." : "Continue with Google"}
         </button>
 
-        {/* LOGIN */}
-        <p className="text-center text-sm text-gray-600">
-          Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 font-medium">
-            Login
-          </Link>
+        <p className="text-center text-sm mt-2">
+          Already have account? <Link href="/login" className="text-blue-600">Login</Link>
         </p>
-
       </div>
     </div>
   );
