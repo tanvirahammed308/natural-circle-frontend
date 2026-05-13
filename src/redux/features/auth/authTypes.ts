@@ -21,8 +21,9 @@ export interface User {
 
 export interface AuthState {
   user: User | null;
+  users: User[];   
   loading: boolean;
-  authChecking: boolean;   // optional upgrade
+  authChecking: boolean;
   error: string | null;
   isAuthenticated: boolean;
 }

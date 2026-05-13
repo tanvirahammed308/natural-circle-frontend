@@ -1,31 +1,59 @@
+// Only Firebase Authentication layer
+
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
   User,
 } from "firebase/auth";
 
 import { auth } from "./firebase";
 
 // =========================
-// REGISTER
+// GOOGLE PROVIDER
+// =========================
+const googleProvider = new GoogleAuthProvider();
+
+// =========================
+// REGISTER (EMAIL + NAME)
 // =========================
 export const registerUser = async (
+  name: string,
   email: string,
   password: string
 ) => {
-  return await createUserWithEmailAndPassword(auth, email, password);
+  const userCred = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    password
+  );
+
+  //  set display name
+  await updateProfile(userCred.user, {
+    displayName: name,
+  });
+
+  return userCred;
 };
 
 // =========================
-// LOGIN
+// LOGIN (EMAIL)
 // =========================
-export const loginUser = async (
-  email: string,
-  password: string
-) => {
+export const loginUser = async (email: string, password: string) => {
   return await signInWithEmailAndPassword(auth, email, password);
+};
+
+// =========================
+// GOOGLE LOGIN
+// =========================
+export const googleLogin = async () => {
+  const result = await signInWithPopup(auth, googleProvider);
+
+  return result.user;
 };
 
 // =========================
@@ -36,7 +64,7 @@ export const logoutUser = async () => {
 };
 
 // =========================
-// GET CURRENT USER TOKEN
+// GET CURRENT TOKEN
 // =========================
 export const getCurrentToken = async () => {
   const user = auth.currentUser;
@@ -47,8 +75,7 @@ export const getCurrentToken = async () => {
 };
 
 // =========================
-// AUTH STATE LISTENER
-// (Redux sync helper)
+// AUTH LISTENER (Redux sync)
 // =========================
 export const listenAuthState = (
   callback: (user: User | null) => void

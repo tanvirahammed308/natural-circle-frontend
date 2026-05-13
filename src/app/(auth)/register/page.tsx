@@ -1,175 +1,242 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
+import { FcGoogle } from "react-icons/fc";
+import Swal from "sweetalert2";
+import { useRouter } from "next/navigation";
+
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Swal from "sweetalert2";
-import { registerUser } from "@/lib/auth";
+
+import {
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+  updateProfile,
+} from "firebase/auth";
+
+import { auth } from "@/lib/firebase";
+
+// ZOD SCHEMA
 
 
+const signupSchema = z.object({
+  name: z.string().min(1, "Name is required"),
 
-// ================= ZOD SCHEMA =================
-const registerSchema = z.object({
-  name: z.string().min(2, "Name is required"),
-  email: z.string().email("Invalid email"),
-  password: z.string().min(6, "Minimum 6 characters"),
+  email: z.email("Invalid email address"),
+
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .regex(/[A-Z]/, "Must include at least 1 uppercase letter")
+    .regex(/[0-9]/, "Must include at least 1 number")
+    .regex(/[^A-Za-z0-9]/, "Must include at least 1 special character"),
+
+  terms: z.boolean().refine((val) => val === true, {
+    message: "You must accept terms & conditions",
+  }),
 });
 
-type RegisterInput = z.infer<typeof registerSchema>;
+type FormData = z.infer<typeof signupSchema>;
 
-const RegisterPage = () => {
-  const router = useRouter();
+export default function SignupPage() {
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const router = useRouter();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RegisterInput>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<FormData>({
+    resolver: zodResolver(signupSchema),
   });
 
-  // ================= EMAIL REGISTER =================
-  const onSubmit = async (data: RegisterInput) => {
+  /* =========================
+     EMAIL SIGNUP
+  ========================= */
+  const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
 
-      await registerUser(data.name, data.email, data.password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
 
-      Swal.fire({
+      await updateProfile(userCredential.user, {
+        displayName: data.name,
+      });
+
+      await Swal.fire({
         icon: "success",
-        title: "Account Created!",
-        text: "You can now login",
+        title: "Success!",
+        text: "Account created successfully!",
         timer: 1500,
         showConfirmButton: false,
       });
 
       router.push("/login");
     } catch (err: any) {
-      Swal.fire({
-        icon: "error",
-        title: "Registration Failed",
-        text: err?.message || "Something went wrong",
-      });
+      Swal.fire("Error", err.message, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // ================= GOOGLE LOGIN =================
+  /* =========================
+     GOOGLE SIGNUP
+  ========================= */
   const handleGoogle = async () => {
     try {
-      setLoading(true);
+      setGoogleLoading(true);
 
-      await googleLogin();
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
 
-      Swal.fire({
+      await Swal.fire({
         icon: "success",
-        title: "Login Successful",
-        text: "Welcome back!",
+        title: "Success!",
+        text: "Google signup successful!",
         timer: 1500,
         showConfirmButton: false,
       });
 
       router.push("/");
     } catch (err: any) {
-      Swal.fire({
-        icon: "error",
-        title: "Google Login Failed",
-        text: err?.message || "Try again",
-      });
+      Swal.fire("Error", err.message, "error");
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-
-      <div className="bg-white p-6 rounded-lg shadow-md w-96 space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
+      
+      {/* CARD */}
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-2">
 
         {/* TITLE */}
-        <h1 className="text-2xl font-bold text-center">
+        <h1 className="text-2xl font-bold text-center text-gray-800">
           Create Account
         </h1>
 
         {/* FORM */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
           {/* NAME */}
           <div>
             <input
-              type="text"
-              placeholder="Name"
               {...register("name")}
-              className="w-full border p-2 rounded"
+              type="text"
+              placeholder="Full Name"
+              className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <p className="text-red-500 text-sm">
-              {errors.name?.message}
-            </p>
+            {errors.name && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.name.message}
+              </p>
+            )}
           </div>
 
           {/* EMAIL */}
           <div>
             <input
+              {...register("email")}
               type="email"
               placeholder="Email"
-              {...register("email")}
-              className="w-full border p-2 rounded"
+              className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <p className="text-red-500 text-sm">
-              {errors.email?.message}
-            </p>
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.email.message}
+              </p>
+            )}
           </div>
 
           {/* PASSWORD */}
           <div>
-            <input
-              type="password"
-              placeholder="Password"
-              {...register("password")}
-              className="w-full border p-2 rounded"
-            />
-            <p className="text-red-500 text-sm">
-              {errors.password?.message}
-            </p>
+            <div className="flex items-center border rounded-lg px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500">
+              
+              <input
+                {...register("password")}
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                className="flex-1 bg-transparent outline-none"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-gray-500 hover:text-blue-600"
+              >
+                {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+              </button>
+            </div>
+
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.password.message}
+              </p>
+            )}
           </div>
 
-          {/* BUTTON */}
+          {/* TERMS */}
+          <div>
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input type="checkbox" {...register("terms")} />
+              I agree to terms & conditions
+            </label>
+
+            {errors.terms && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.terms.message}
+              </p>
+            )}
+          </div>
+
+          {/* SUBMIT BUTTON */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 text-white p-2 rounded"
+            className="w-full bg-[#7aa209] text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50"
           >
-            {loading ? "Creating..." : "Register"}
+            {loading ? "Creating Account..." : "Sign Up"}
           </button>
         </form>
 
         {/* DIVIDER */}
-        <div className="text-center text-gray-400">
-          OR
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-gray-300"></div>
+          <span className="text-sm text-gray-400">OR</span>
+          <div className="flex-1 h-px bg-gray-300"></div>
         </div>
 
         {/* GOOGLE BUTTON */}
         <button
           onClick={handleGoogle}
-          disabled={loading}
-          className="w-full border p-2 rounded flex items-center justify-center gap-2 hover:bg-gray-100"
+          disabled={googleLoading}
+          className="w-full flex items-center justify-center gap-2 border py-3 rounded-lg hover:bg-gray-100"
         >
-          <img
-            src="https://www.svgrepo.com/show/475656/google-color.svg"
-            width={20}
-            height={20}
-            alt="google"
-          />
-          Continue with Google
+          <FcGoogle size={22} />
+          {googleLoading ? "Connecting..." : "Continue with Google"}
         </button>
+
+        {/* LOGIN */}
+        <p className="text-center text-sm text-gray-600">
+          Already have an account?{" "}
+          <Link href="/login" className="text-blue-600 font-medium">
+            Login
+          </Link>
+        </p>
 
       </div>
     </div>
   );
-};
-
-export default RegisterPage;
+}

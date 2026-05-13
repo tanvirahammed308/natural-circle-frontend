@@ -139,3 +139,4 @@ npm install @stripe/stripe-js @stripe/react-stripe-js
 
 # Theme and Alerts
 npm install next-themes sweetalert2 */
+
