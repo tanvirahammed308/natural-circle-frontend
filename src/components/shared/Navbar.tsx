@@ -21,6 +21,7 @@ const Navbar = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [search, setSearch] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const { user, isAuthenticated } = useSelector(
     (state: RootState) => state.auth
@@ -38,6 +39,13 @@ const Navbar = () => {
       document.documentElement.classList.add("dark");
       setDarkMode(true);
     }
+  }, []);
+
+  // ================= CLOSE DROPDOWN ON CLICK OUTSIDE =================
+  useEffect(() => {
+    const close = () => setUserMenuOpen(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
   }, []);
 
   // ================= THEME TOGGLE =================
@@ -122,81 +130,86 @@ const Navbar = () => {
         {/* ================= RIGHT SIDE ================= */}
         <div className="hidden md:flex items-center gap-4">
 
-          {/* ================= SEARCH ================= */}
+          {/* SEARCH */}
           {!showSearch ? (
             <button
               onClick={() => setShowSearch(true)}
-              className="text-xl text-gray-700 dark:text-white hover:text-[#7AA209] transition"
+              className="text-xl text-gray-700 dark:text-white"
             >
               <MdSearch />
             </button>
           ) : (
             <form
               onSubmit={handleSearch}
-              className="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full shadow-md overflow-hidden transition-all"
+              className="flex items-center bg-white dark:bg-gray-800 border rounded-full overflow-hidden"
             >
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products..."
-                autoFocus
-                className="w-56 px-4 py-2 bg-transparent outline-none text-sm text-gray-700 dark:text-white"
+                placeholder="Search..."
+                className="w-56 px-4 py-2 outline-none"
               />
 
-              <button
-                type="submit"
-                className="bg-[#7AA209] hover:bg-[#6a9208] text-white px-4 py-2 transition"
-              >
-                <MdSearch size={18} />
+              <button className="bg-[#7AA209] text-white px-3 py-2">
+                <MdSearch />
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowSearch(false)}
-                className="px-3 text-gray-500 hover:text-red-500 transition"
+                className="px-3"
               >
-                <IoMdClose size={20} />
+                <IoMdClose />
               </button>
             </form>
           )}
 
           {/* THEME */}
-          <button
-            onClick={toggleTheme}
-            className="text-xl text-gray-700 dark:text-white hover:text-[#7AA209]"
-          >
+          <button onClick={toggleTheme} className="text-xl">
             {darkMode ? <FaSun /> : <FaMoon />}
           </button>
 
           {/* CART */}
-          <Link
-            href="/dashboard/cart"
-            className="text-xl text-gray-700 dark:text-white hover:text-[#7AA209]"
-          >
+          <Link href="/dashboard/cart" className="text-xl">
             <FaShoppingCart />
           </Link>
 
           {/* AUTH */}
           {isAuthenticated && user ? (
-            <>
-              <Link
-                href="/dashboard"
-                className="bg-[#7AA209] hover:bg-[#6a9208] text-white px-4 py-2 rounded-lg transition"
-              >
-                Dashboard
-              </Link>
-
+            <div className="relative">
               <button
-                onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUserMenuOpen(!userMenuOpen);
+                }}
+                className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
               >
-                Logout
+                <FaUser />
+                {user.name?.split(" ")[0]}
               </button>
-            </>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden z-50">
+                  <Link
+                    href="/dashboard"
+                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Dashboard
+                  </Link>
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2 text-red-500 hover:bg-red-100"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <Link
               href="/login"
-              className="flex items-center gap-2 bg-[#7AA209] hover:bg-[#6a9208] text-white px-4 py-2 rounded-lg transition"
+              className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
             >
               <FaUser />
               Login
@@ -224,11 +237,41 @@ const Navbar = () => {
             key={link.href}
             href={link.href}
             onClick={() => setOpen(false)}
-            className="block py-2 text-gray-700 dark:text-white"
+            className="block py-2"
           >
             {link.name}
           </Link>
         ))}
+
+        <hr className="my-4" />
+
+        {/* MOBILE AUTH */}
+        {isAuthenticated && user ? (
+          <div className="space-y-3">
+            <p className="text-[#7AA209] font-semibold">
+              {user.name}
+            </p>
+
+            <Link href="/dashboard" onClick={() => setOpen(false)}>
+              Dashboard
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="w-full bg-red-500 text-white py-2 rounded-lg"
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            onClick={() => setOpen(false)}
+            className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
+          >
+            Login
+          </Link>
+        )}
       </div>
     </nav>
   );
