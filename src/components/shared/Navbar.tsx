@@ -8,7 +8,8 @@ import { useDispatch, useSelector } from "react-redux";
 
 import { RootState, AppDispatch } from "@/redux/store";
 import { logout, setUser } from "@/redux/features/auth/authSlice";
-import { logoutUser } from "@/lib/auth"; // Import Firebase logout
+import { logoutUser } from "@/lib/auth";
+import { auth } from "@/lib/firebase";
 
 import Swal from "sweetalert2";
 
@@ -49,6 +50,32 @@ const Navbar = () => {
     return () => window.removeEventListener("click", close);
   }, []);
 
+  // ================= CHECK FIREBASE AUTH =================
+  useEffect(() => {
+    const checkFirebaseAuth = async () => {
+      try {
+        const firebaseUser = auth.currentUser;
+        console.log("Firebase user:", firebaseUser?.email);
+        
+        if (firebaseUser && !user) {
+          const userData = {
+            _id: firebaseUser.uid,
+            firebaseUid: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
+            email: firebaseUser.email || "",
+            role: "user" as "user",
+          };
+          dispatch(setUser(userData));
+          console.log("User set from Navbar:", userData);
+        }
+      } catch (error) {
+        console.error("Error checking Firebase auth:", error);
+      }
+    };
+    
+    checkFirebaseAuth();
+  }, [user, dispatch]);
+
   // ================= THEME TOGGLE =================
   const toggleTheme = () => {
     const newTheme = darkMode ? "light" : "dark";
@@ -62,9 +89,7 @@ const Navbar = () => {
   // ================= LOGOUT =================
   const handleLogout = async () => {
     try {
-      // Firebase logout
       await logoutUser();
-      // Redux logout
       dispatch(logout());
 
       Swal.fire({
@@ -109,36 +134,6 @@ const Navbar = () => {
     { name: "Contact", href: "/contact" },
   ];
 
-  // Debug log to check user state
-  useEffect(() => {
-    console.log("Navbar user state:", { user, isAuthenticated });
-  }, [user, isAuthenticated]);
-  // Navbar.tsx - এই useEffect যোগ করুন (অন্যান্য useEffect এর সাথে)
-useEffect(() => {
-  console.log("Navbar - Current user from Redux:", user);
-  console.log("Navbar - Is Authenticated:", isAuthenticated);
-  
-  // যদি Redux এ user না থাকে কিন্তু Firebase এ থাকে
-  const checkFirebase = async () => {
-    const { auth } = await import('@/lib/firebase');
-    const firebaseUser = auth.currentUser;
-    
-    if (firebaseUser && !user) {
-      console.log("Firebase user found but Redux empty - fixing...");
-      const userData = {
-        _id: firebaseUser.uid,
-        firebaseUid: firebaseUser.uid,
-        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
-        email: firebaseUser.email || "",
-        role: "user" as "user",
-      };
-      dispatch(setUser(userData));
-    }
-  };
-  
-  checkFirebase();
-}, [user, isAuthenticated, dispatch]);
-
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md">
       <div className="max-w-7xl mx-auto h-16 flex items-center justify-between px-4">
@@ -150,6 +145,7 @@ useEffect(() => {
             alt="logo"
             width={120}
             height={40}
+            priority
           />
         </Link>
 
@@ -190,7 +186,7 @@ useEffect(() => {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search..."
-                className="w-56 px-4 py-2 outline-none"
+                className="w-56 px-4 py-2 outline-none dark:bg-gray-800 dark:text-white"
               />
 
               <button className="bg-[#7AA209] text-white px-3 py-2">
@@ -200,7 +196,7 @@ useEffect(() => {
               <button
                 type="button"
                 onClick={() => setShowSearch(false)}
-                className="px-3"
+                className="px-3 text-gray-700 dark:text-white"
               >
                 <IoMdClose />
               </button>
@@ -208,12 +204,12 @@ useEffect(() => {
           )}
 
           {/* THEME */}
-          <button onClick={toggleTheme} className="text-xl">
+          <button onClick={toggleTheme} className="text-xl text-gray-700 dark:text-white">
             {darkMode ? <FaSun /> : <FaMoon />}
           </button>
 
           {/* CART */}
-          <Link href="/dashboard/cart" className="text-xl">
+          <Link href="/dashboard/cart" className="text-xl text-gray-700 dark:text-white">
             <FaShoppingCart />
           </Link>
 
@@ -225,17 +221,17 @@ useEffect(() => {
                   e.stopPropagation();
                   setUserMenuOpen(!userMenuOpen);
                 }}
-                className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
+                className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg hover:bg-[#6b8f08] transition"
               >
                 <FaUser />
                 {user.name?.split(" ")[0] || user.email?.split("@")[0]}
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden z-50 border dark:border-gray-700">
                   <Link
                     href="/dashboard"
-                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                     onClick={() => setUserMenuOpen(false)}
                   >
                     Dashboard
@@ -243,7 +239,7 @@ useEffect(() => {
 
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-red-500 hover:bg-red-100"
+                    className="w-full text-left px-4 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
                   >
                     Logout
                   </button>
@@ -253,7 +249,7 @@ useEffect(() => {
           ) : (
             <Link
               href="/login"
-              className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
+              className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg hover:bg-[#6b8f08] transition"
             >
               <FaUser />
               Login
@@ -272,7 +268,7 @@ useEffect(() => {
 
       {/* ================= MOBILE MENU ================= */}
       <div
-        className={`fixed top-16 right-0 w-72 h-screen bg-white dark:bg-gray-900 p-5 transition-transform md:hidden ${
+        className={`fixed top-16 right-0 w-72 h-screen bg-white dark:bg-gray-900 p-5 transition-transform transform md:hidden z-50 shadow-lg ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -281,13 +277,13 @@ useEffect(() => {
             key={link.href}
             href={link.href}
             onClick={() => setOpen(false)}
-            className="block py-2"
+            className="block py-2 text-gray-700 dark:text-gray-300 hover:text-[#7AA209] transition"
           >
             {link.name}
           </Link>
         ))}
 
-        <hr className="my-4" />
+        <hr className="my-4 border-gray-200 dark:border-gray-700" />
 
         {/* MOBILE AUTH */}
         {isAuthenticated && user ? (
@@ -299,14 +295,14 @@ useEffect(() => {
             <Link 
               href="/dashboard" 
               onClick={() => setOpen(false)}
-              className="block"
+              className="block py-2 text-gray-700 dark:text-gray-300 hover:text-[#7AA209] transition"
             >
               Dashboard
             </Link>
 
             <button
               onClick={handleLogout}
-              className="w-full bg-red-500 text-white py-2 rounded-lg"
+              className="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition"
             >
               Logout
             </button>
@@ -315,7 +311,7 @@ useEffect(() => {
           <Link
             href="/login"
             onClick={() => setOpen(false)}
-            className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
+            className="block text-center bg-[#7AA209] text-white py-2 rounded-lg hover:bg-[#6b8f08] transition"
           >
             Login
           </Link>
