@@ -7,34 +7,33 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { RootState, AppDispatch } from "@/redux/store";
-import { logout, setUser } from "@/redux/features/auth/authSlice";
+import { logout } from "@/redux/features/auth/authSlice";
 import { getCurrentUser } from "@/redux/features/auth/authThunk";
 
 import Swal from "sweetalert2";
 
-import { MdMenuOpen, MdSearch } from "react-icons/md";
+import { MdMenuOpen } from "react-icons/md";
 import { IoMdClose } from "react-icons/io";
-import { FaMoon, FaSun, FaUser, FaShoppingCart } from "react-icons/fa";
+import { FaUser, FaShoppingCart } from "react-icons/fa";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [dropdown, setDropdown] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const { user, isAuthenticated } = useSelector(
-    (state: RootState) => state.auth
-  );
 
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const pathname = usePathname();
 
-  // ================= AUTO LOGIN CHECK =================
+  const { user, isAuthenticated, authChecking } = useSelector(
+    (state: RootState) => state.auth
+  );
+
+  // ✅ FIX: load user on refresh
   useEffect(() => {
     dispatch(getCurrentUser());
   }, [dispatch]);
 
-  // ================= CLOSE DROPDOWN OUTSIDE CLICK =================
+  // close dropdown outside click
   useEffect(() => {
     const close = () => setDropdown(false);
     window.addEventListener("click", close);
@@ -43,6 +42,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     dispatch(logout());
+    router.push("/login");
 
     Swal.fire({
       icon: "success",
@@ -50,8 +50,6 @@ export default function Navbar() {
       timer: 1200,
       showConfirmButton: false,
     });
-
-    router.push("/login");
   };
 
   const navLinks = [
@@ -64,8 +62,17 @@ export default function Navbar() {
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
+  // ✅ IMPORTANT: wait until auth loads
+  if (authChecking) {
+    return (
+      <div className="h-16 flex items-center justify-center">
+        Loading...
+      </div>
+    );
+  }
+
   return (
-    <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md">
+    <nav className="sticky top-0 z-50 bg-white shadow-md">
       <div className="max-w-7xl mx-auto h-16 flex items-center justify-between px-4">
 
         {/* LOGO */}
@@ -79,11 +86,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`font-medium ${
-                isActive(link.href)
-                  ? "text-[#7AA209]"
-                  : "text-gray-700 dark:text-gray-300"
-              }`}
+              className={isActive(link.href) ? "text-green-600" : ""}
             >
               {link.name}
             </Link>
@@ -93,34 +96,28 @@ export default function Navbar() {
         {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-4">
 
-          {/* CART */}
           <Link href="/dashboard/cart">
             <FaShoppingCart />
           </Link>
 
-          {/* USER AUTH */}
+          {/* USER */}
           {isAuthenticated && user ? (
             <div className="relative">
 
-              {/* USER BUTTON */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setDropdown(!dropdown);
                 }}
-                className="flex items-center gap-2 bg-[#7AA209] text-white px-3 py-2 rounded-lg"
+                className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg"
               >
                 <FaUser />
                 {user?.name?.split(" ")[0]}
               </button>
 
-              {/* DROPDOWN */}
               {dropdown && (
-                <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 shadow-lg rounded">
-                  <Link
-                    href="/dashboard"
-                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
+                <div className="absolute right-0 mt-2 w-44 bg-white shadow rounded">
+                  <Link href="/dashboard" className="block px-4 py-2">
                     Dashboard
                   </Link>
 
@@ -136,7 +133,7 @@ export default function Navbar() {
           ) : (
             <Link
               href="/login"
-              className="bg-[#7AA209] text-white px-4 py-2 rounded-lg"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg"
             >
               Login
             </Link>
@@ -151,7 +148,7 @@ export default function Navbar() {
 
       {/* MOBILE MENU */}
       <div
-        className={`fixed top-16 right-0 w-72 h-screen bg-white dark:bg-gray-900 p-5 md:hidden transition-transform ${
+        className={`fixed top-16 right-0 w-72 h-screen bg-white p-5 md:hidden transition-transform ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -168,19 +165,14 @@ export default function Navbar() {
 
         <hr className="my-4" />
 
-        {/* MOBILE AUTH */}
+        {/* MOBILE AUTH FIX */}
         {isAuthenticated && user ? (
-          <div className="space-y-3">
-
-            <p className="text-[#7AA209] font-semibold">
+          <>
+            <p className="font-semibold text-green-600">
               {user?.name}
             </p>
 
-            <Link
-              href="/dashboard"
-              onClick={() => setOpen(false)}
-              className="block"
-            >
+            <Link href="/dashboard" onClick={() => setOpen(false)}>
               Dashboard
             </Link>
 
@@ -189,16 +181,16 @@ export default function Navbar() {
                 handleLogout();
                 setOpen(false);
               }}
-              className="w-full bg-red-500 text-white py-2 rounded-lg"
+              className="w-full bg-red-500 text-white py-2 rounded-lg mt-2"
             >
               Logout
             </button>
-          </div>
+          </>
         ) : (
           <Link
             href="/login"
             onClick={() => setOpen(false)}
-            className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
+            className="block text-center bg-green-600 text-white py-2 rounded-lg"
           >
             Login
           </Link>
