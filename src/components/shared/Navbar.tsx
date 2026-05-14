@@ -8,49 +8,86 @@ import { useDispatch, useSelector } from "react-redux";
 
 import { RootState, AppDispatch } from "@/redux/store";
 import { logout } from "@/redux/features/auth/authSlice";
-import { getCurrentUser } from "@/redux/features/auth/authThunk";
 
 import Swal from "sweetalert2";
 
-import { MdMenuOpen } from "react-icons/md";
+// Icons
+import { MdMenuOpen, MdSearch } from "react-icons/md";
 import { IoMdClose } from "react-icons/io";
-import { FaUser, FaShoppingCart } from "react-icons/fa";
+import { FaMoon, FaSun, FaUser, FaShoppingCart } from "react-icons/fa";
 
-export default function Navbar() {
+const Navbar = () => {
   const [open, setOpen] = useState(false);
-  const [dropdown, setDropdown] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [search, setSearch] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const { user, isAuthenticated } = useSelector(
+    (state: RootState) => state.auth
+  );
 
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const pathname = usePathname();
 
-  const { user, isAuthenticated, authChecking } = useSelector(
-    (state: RootState) => state.auth
-  );
-
-  // ✅ FIX: load user on refresh
+  // ================= THEME INIT =================
   useEffect(() => {
-    dispatch(getCurrentUser());
-  }, [dispatch]);
+    const savedTheme = localStorage.getItem("theme");
 
-  // close dropdown outside click
+    if (savedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+      setDarkMode(true);
+    }
+  }, []);
+
+  // ================= CLOSE DROPDOWN ON CLICK OUTSIDE =================
   useEffect(() => {
-    const close = () => setDropdown(false);
+    const close = () => setUserMenuOpen(false);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
 
+  // ================= THEME TOGGLE =================
+  const toggleTheme = () => {
+    const newTheme = darkMode ? "light" : "dark";
+
+    setDarkMode(!darkMode);
+    localStorage.setItem("theme", newTheme);
+
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
+  };
+
+  // ================= LOGOUT =================
   const handleLogout = () => {
     dispatch(logout());
-    router.push("/login");
 
     Swal.fire({
       icon: "success",
-      title: "Logged out",
+      title: "Logged out successfully",
       timer: 1200,
       showConfirmButton: false,
     });
+
+    router.push("/login");
   };
+
+  // ================= SEARCH =================
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!search.trim()) return;
+
+    router.push(`/products?search=${search}`);
+
+    setSearch("");
+    setShowSearch(false);
+    setOpen(false);
+  };
+
+  // ================= ACTIVE LINK =================
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const navLinks = [
     { name: "Home", href: "/" },
@@ -59,71 +96,110 @@ export default function Navbar() {
     { name: "Contact", href: "/contact" },
   ];
 
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
-
-  // ✅ IMPORTANT: wait until auth loads
-  if (authChecking) {
-    return (
-      <div className="h-16 flex items-center justify-center">
-        Loading...
-      </div>
-    );
-  }
-
   return (
-    <nav className="sticky top-0 z-50 bg-white shadow-md">
+    <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md">
       <div className="max-w-7xl mx-auto h-16 flex items-center justify-between px-4">
 
-        {/* LOGO */}
-        <Link href="/">
-          <Image src="/images/logo.png" alt="logo" width={120} height={40} />
+        {/* ================= LOGO ================= */}
+        <Link href="/" className="flex items-center gap-2">
+          <Image
+            src="/images/logo.png"
+            alt="logo"
+            width={120}
+            height={40}
+          />
         </Link>
 
-        {/* DESKTOP MENU */}
+        {/* ================= DESKTOP MENU ================= */}
         <div className="hidden md:flex gap-6">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={isActive(link.href) ? "text-green-600" : ""}
+              className={`font-medium transition ${
+                isActive(link.href)
+                  ? "text-[#7AA209]"
+                  : "text-gray-700 dark:text-gray-300 hover:text-[#7AA209]"
+              }`}
             >
               {link.name}
             </Link>
           ))}
         </div>
 
-        {/* RIGHT SIDE */}
+        {/* ================= RIGHT SIDE ================= */}
         <div className="hidden md:flex items-center gap-4">
 
-          <Link href="/dashboard/cart">
+          {/* SEARCH */}
+          {!showSearch ? (
+            <button
+              onClick={() => setShowSearch(true)}
+              className="text-xl text-gray-700 dark:text-white"
+            >
+              <MdSearch />
+            </button>
+          ) : (
+            <form
+              onSubmit={handleSearch}
+              className="flex items-center bg-white dark:bg-gray-800 border rounded-full overflow-hidden"
+            >
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search..."
+                className="w-56 px-4 py-2 outline-none"
+              />
+
+              <button className="bg-[#7AA209] text-white px-3 py-2">
+                <MdSearch />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowSearch(false)}
+                className="px-3"
+              >
+                <IoMdClose />
+              </button>
+            </form>
+          )}
+
+          {/* THEME */}
+          <button onClick={toggleTheme} className="text-xl">
+            {darkMode ? <FaSun /> : <FaMoon />}
+          </button>
+
+          {/* CART */}
+          <Link href="/dashboard/cart" className="text-xl">
             <FaShoppingCart />
           </Link>
 
-          {/* USER */}
+          {/* AUTH */}
           {isAuthenticated && user ? (
             <div className="relative">
-
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setDropdown(!dropdown);
+                  setUserMenuOpen(!userMenuOpen);
                 }}
-                className="flex items-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg"
+                className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
               >
                 <FaUser />
-                {user?.name?.split(" ")[0]}
+                {user.name?.split(" ")[0]}
               </button>
 
-              {dropdown && (
-                <div className="absolute right-0 mt-2 w-44 bg-white shadow rounded">
-                  <Link href="/dashboard" className="block px-4 py-2">
+              {userMenuOpen && (
+                <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden z-50">
+                  <Link
+                    href="/dashboard"
+                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
                     Dashboard
                   </Link>
 
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-red-500"
+                    className="w-full text-left px-4 py-2 text-red-500 hover:bg-red-100"
                   >
                     Logout
                   </button>
@@ -133,22 +209,26 @@ export default function Navbar() {
           ) : (
             <Link
               href="/login"
-              className="bg-green-600 text-white px-4 py-2 rounded-lg"
+              className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
             >
+              <FaUser />
               Login
             </Link>
           )}
         </div>
 
-        {/* MOBILE MENU BUTTON */}
-        <button onClick={() => setOpen(!open)} className="md:hidden">
-          {open ? <IoMdClose size={28} /> : <MdMenuOpen size={28} />}
+        {/* ================= MOBILE BUTTON ================= */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="md:hidden text-3xl text-[#7AA209]"
+        >
+          {open ? <IoMdClose /> : <MdMenuOpen />}
         </button>
       </div>
 
-      {/* MOBILE MENU */}
+      {/* ================= MOBILE MENU ================= */}
       <div
-        className={`fixed top-16 right-0 w-72 h-screen bg-white p-5 md:hidden transition-transform ${
+        className={`fixed top-16 right-0 w-72 h-screen bg-white dark:bg-gray-900 p-5 transition-transform md:hidden ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -165,11 +245,11 @@ export default function Navbar() {
 
         <hr className="my-4" />
 
-        {/* MOBILE AUTH FIX */}
+        {/* MOBILE AUTH */}
         {isAuthenticated && user ? (
-          <>
-            <p className="font-semibold text-green-600">
-              {user?.name}
+          <div className="space-y-3">
+            <p className="text-[#7AA209] font-semibold">
+              {user.name}
             </p>
 
             <Link href="/dashboard" onClick={() => setOpen(false)}>
@@ -177,20 +257,17 @@ export default function Navbar() {
             </Link>
 
             <button
-              onClick={() => {
-                handleLogout();
-                setOpen(false);
-              }}
-              className="w-full bg-red-500 text-white py-2 rounded-lg mt-2"
+              onClick={handleLogout}
+              className="w-full bg-red-500 text-white py-2 rounded-lg"
             >
               Logout
             </button>
-          </>
+          </div>
         ) : (
           <Link
             href="/login"
             onClick={() => setOpen(false)}
-            className="block text-center bg-green-600 text-white py-2 rounded-lg"
+            className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
           >
             Login
           </Link>
@@ -198,4 +275,6 @@ export default function Navbar() {
       </div>
     </nav>
   );
-}
+};
+
+export default Navbar;

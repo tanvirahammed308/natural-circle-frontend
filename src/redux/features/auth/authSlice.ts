@@ -98,10 +98,10 @@ const authSlice = createSlice({
     });
 
     builder.addCase(getCurrentUser.rejected, (state) => {
-      state.user = null;
-      state.isAuthenticated = false;
-      state.authChecking = false;
-    });
+  state.user = null;
+  state.isAuthenticated = false;
+  state.authChecking = false;
+});
 
     // ================= UPDATE PROFILE =================
     builder.addCase(updateUserProfile.fulfilled, (state, action) => {
