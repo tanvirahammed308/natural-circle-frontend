@@ -249,13 +249,7 @@ const Navbar = () => {
               Login
             </Link>
 
-            <Link
-              href="/signup"
-              onClick={() => setOpen(false)}
-              className="block text-center border border-[#7AA209] text-[#7AA209] py-2 rounded-lg"
-            >
-              Register
-            </Link>
+            
           </div>
         )}
       </div>
