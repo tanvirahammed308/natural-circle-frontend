@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useDispatch } from "react-redux";
 import { useForm } from "react-hook-form";
 import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import Swal from "sweetalert2";
-import { useRouter } from "next/navigation";
-
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -19,14 +19,16 @@ import {
 } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
-import api from "@/lib/axios"; 
+import api from "@/lib/axios";
+import { setUser } from "@/redux/features/auth/authSlice";
+import { AppDispatch } from "@/redux/store";
 
 // =========================
 // ZOD SCHEMA
 // =========================
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  email: z.email("Invalid email address"),
+  email: z.string().email("Invalid email address"),
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
@@ -44,8 +46,9 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-
+  
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
 
   const {
     register,
@@ -61,6 +64,7 @@ export default function SignupPage() {
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
+      console.log("1. Starting email signup...");
 
       // 1. Firebase user create
       const userCredential = await createUserWithEmailAndPassword(
@@ -68,23 +72,36 @@ export default function SignupPage() {
         data.email,
         data.password
       );
-
       const firebaseUser = userCredential.user;
+      console.log("2. Firebase user created:", firebaseUser.email);
 
       // 2. Set display name in Firebase
       await updateProfile(firebaseUser, {
         displayName: data.name,
       });
+      console.log("3. Display name set in Firebase");
 
       // 3. Send to MongoDB backend
-      await api.post("/auth/register", {
+      const response = await api.post("/auth/register", {
         firebaseUid: firebaseUser.uid,
         name: data.name,
         email: data.email,
         avatar: "",
       });
+      console.log("4. User registered in MongoDB:", response.data);
 
-      // 4. Success message
+      // 4. Set user in Redux
+      const userData = response.data.user || {
+        _id: firebaseUser.uid,
+        firebaseUid: firebaseUser.uid,
+        name: data.name,
+        email: data.email,
+        role: "user" as "user",
+      };
+      dispatch(setUser(userData));
+      console.log("5. User set in Redux");
+
+      // 5. Success message
       await Swal.fire({
         icon: "success",
         title: "Success!",
@@ -93,9 +110,27 @@ export default function SignupPage() {
         showConfirmButton: false,
       });
 
-      router.push("/login");
+      console.log("6. Redirecting to home...");
+      router.push("/");
+      router.refresh();
+      
     } catch (err: any) {
-      Swal.fire("Error", err.message, "error");
+      console.error("Signup error:", err);
+      
+      let errorMessage = err.message;
+      if (err.code === 'auth/email-already-in-use') {
+        errorMessage = "Email already in use. Please login instead.";
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = "Password is too weak.";
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
+      Swal.fire({
+        icon: "error",
+        title: "Signup Failed",
+        text: errorMessage,
+      });
     } finally {
       setLoading(false);
     }
@@ -107,19 +142,40 @@ export default function SignupPage() {
   const handleGoogle = async () => {
     try {
       setGoogleLoading(true);
+      console.log("1. Starting Google signup...");
 
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-
       const user = result.user;
+      console.log("2. Google signup success:", user.email);
 
       // Send to MongoDB
-      await api.post("/auth/register", {
+      let response;
+      try {
+        response = await api.post("/auth/login", {
+          firebaseUid: user.uid,
+        });
+        console.log("3. User already exists in MongoDB");
+      } catch {
+        response = await api.post("/auth/register", {
+          firebaseUid: user.uid,
+          name: user.displayName || "Google User",
+          email: user.email,
+          avatar: user.photoURL || "",
+        });
+        console.log("3. New user registered in MongoDB");
+      }
+
+      // Set user in Redux
+      const userData = response.data.user || {
+        _id: user.uid,
         firebaseUid: user.uid,
-        name: user.displayName || "Google User",
-        email: user.email,
-        avatar: user.photoURL || "",
-      });
+        name: user.displayName || user.email?.split('@')[0] || "User",
+        email: user.email || "",
+        role: "user" as "user",
+      };
+      dispatch(setUser(userData));
+      console.log("4. User set in Redux");
 
       await Swal.fire({
         icon: "success",
@@ -129,9 +185,26 @@ export default function SignupPage() {
         showConfirmButton: false,
       });
 
+      console.log("5. Redirecting to home...");
       router.push("/");
+      router.refresh();
+      
     } catch (err: any) {
-      Swal.fire("Error", err.message, "error");
+      console.error("Google signup error:", err);
+      
+      if (err.code === 'auth/popup-blocked') {
+        Swal.fire({
+          icon: "warning",
+          title: "Popup Blocked",
+          text: "Please allow popups for this website and try again.",
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Google Signup Failed",
+          text: err.message,
+        });
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -139,78 +212,110 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-2">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-4">
+        
+        {/* TITLE */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-800">Create Account</h1>
+          <p className="text-gray-500 mt-1">Sign up to get started</p>
+        </div>
 
-        <h1 className="text-2xl font-bold text-center">
-          Create Account
-        </h1>
-
+        {/* FORM */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-
+          
           {/* NAME */}
-          <input
-            {...register("name")}
-            placeholder="Full Name"
-            className="w-full px-4 py-3 border rounded-lg"
-          />
-          {errors.name && <p className="text-red-500">{errors.name.message}</p>}
-
-          {/* EMAIL */}
-          <input
-            {...register("email")}
-            placeholder="Email"
-            className="w-full px-4 py-3 border rounded-lg"
-          />
-          {errors.email && <p className="text-red-500">{errors.email.message}</p>}
-
-          {/* PASSWORD */}
-          <div className="flex items-center border rounded-lg px-4 py-3">
+          <div>
             <input
-              {...register("password")}
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              className="flex-1 outline-none"
+              {...register("name")}
+              type="text"
+              placeholder="Full Name"
+              className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500"
             />
-            <button type="button" onClick={() => setShowPassword(!showPassword)}>
-              {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
-            </button>
+            {errors.name && (
+              <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+            )}
           </div>
 
-          {errors.password && (
-            <p className="text-red-500">{errors.password.message}</p>
-          )}
+          {/* EMAIL */}
+          <div>
+            <input
+              {...register("email")}
+              type="email"
+              placeholder="Email address"
+              className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500"
+            />
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+            )}
+          </div>
+
+          {/* PASSWORD */}
+          <div>
+            <div className="flex items-center border rounded-lg px-4 py-3 focus-within:ring-2 focus-within:ring-green-500">
+              <input
+                {...register("password")}
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                className="flex-1 bg-transparent outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-gray-500 hover:text-green-600"
+              >
+                {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+            )}
+          </div>
 
           {/* TERMS */}
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" {...register("terms")} />
-            I agree to terms
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input type="checkbox" {...register("terms")} className="w-4 h-4" />
+            I agree to the{" "}
+            <Link href="/terms" className="text-green-600 hover:underline">
+              Terms & Conditions
+            </Link>
           </label>
-
           {errors.terms && (
-            <p className="text-red-500">{errors.terms.message}</p>
+            <p className="text-red-500 text-sm">{errors.terms.message}</p>
           )}
 
-          {/* SUBMIT */}
+          {/* SUBMIT BUTTON */}
           <button
+            type="submit"
             disabled={loading}
-            className="w-full bg-[#7AA209] text-white py-3 rounded-lg"
+            className="w-full bg-[#7AA209] text-white py-3 rounded-lg font-semibold transition hover:bg-[#6b8f08] disabled:opacity-50"
           >
-            {loading ? "Creating..." : "Sign Up"}
+            {loading ? "Creating Account..." : "Sign Up"}
           </button>
         </form>
 
-        {/* GOOGLE */}
+        {/* DIVIDER */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-gray-300"></div>
+          <span className="text-sm text-gray-400">OR</span>
+          <div className="flex-1 h-px bg-gray-300"></div>
+        </div>
+
+        {/* GOOGLE BUTTON */}
         <button
           onClick={handleGoogle}
           disabled={googleLoading}
-          className="w-full flex items-center justify-center gap-2 border py-3 rounded-lg"
+          className="w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition"
         >
           <FcGoogle size={22} />
-          {googleLoading ? "Loading..." : "Continue with Google"}
+          {googleLoading ? "Connecting..." : "Continue with Google"}
         </button>
 
-        <p className="text-center text-sm mt-2">
-          Already have account? <Link href="/login" className="text-blue-600">Login</Link>
+        {/* LOGIN LINK */}
+        <p className="text-center text-sm text-gray-600">
+          Already have an account?{" "}
+          <Link href="/login" className="text-blue-600 font-medium hover:underline">
+            Login
+          </Link>
         </p>
       </div>
     </div>
