@@ -16,12 +16,12 @@ import { MdMenuOpen, MdSearch } from "react-icons/md";
 import { IoMdClose } from "react-icons/io";
 import { FaMoon, FaSun, FaUser, FaShoppingCart } from "react-icons/fa";
 
-const Navbar = () => {
+export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [search, setSearch] = useState("");
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [dropdown, setDropdown] = useState(false);
 
   const { user, isAuthenticated } = useSelector(
     (state: RootState) => state.auth
@@ -31,33 +31,35 @@ const Navbar = () => {
   const router = useRouter();
   const pathname = usePathname();
 
-  // ================= THEME INIT =================
+  // close dropdown on outside click
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
+    const close = () => setDropdown(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
 
-    if (savedTheme === "dark") {
+  // theme
+  useEffect(() => {
+    const theme = localStorage.getItem("theme");
+    if (theme === "dark") {
       document.documentElement.classList.add("dark");
       setDarkMode(true);
     }
   }, []);
 
-  // ================= THEME TOGGLE =================
   const toggleTheme = () => {
     const newTheme = darkMode ? "light" : "dark";
-
     setDarkMode(!darkMode);
     localStorage.setItem("theme", newTheme);
-
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  // ================= LOGOUT =================
   const handleLogout = () => {
     dispatch(logout());
 
     Swal.fire({
       icon: "success",
-      title: "Logged out successfully",
+      title: "Logged out",
       timer: 1200,
       showConfirmButton: false,
     });
@@ -65,14 +67,11 @@ const Navbar = () => {
     router.push("/login");
   };
 
-  // ================= SEARCH =================
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!search.trim()) return;
 
     router.push(`/products?search=${search}`);
-
     setSearch("");
     setShowSearch(false);
     setOpen(false);
@@ -103,7 +102,7 @@ const Navbar = () => {
             <Link
               key={link.href}
               href={link.href}
-              className={`font-medium ${
+              className={`${
                 isActive(link.href)
                   ? "text-[#7AA209]"
                   : "text-gray-700 dark:text-gray-300"
@@ -146,31 +145,33 @@ const Navbar = () => {
             <FaShoppingCart />
           </Link>
 
-          {/* AUTH */}
+          {/* USER LOGIN / DROPDOWN */}
           {isAuthenticated && user ? (
             <div className="relative">
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setUserMenuOpen(!userMenuOpen);
+                  setDropdown(!dropdown);
                 }}
-                className="bg-[#7AA209] text-white px-4 py-2 rounded-lg"
+                className="flex items-center gap-2 bg-[#7AA209] text-white px-3 py-2 rounded-lg"
               >
-                <FaUser /> {user.name?.split(" ")[0]}
+                <FaUser />
+                {user.name?.split(" ")[0]}
               </button>
 
-              {userMenuOpen && (
-                <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 shadow-md rounded w-40">
+              {dropdown && (
+                <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 shadow-md rounded w-44">
                   <Link
                     href="/dashboard"
-                    className="block px-3 py-2 hover:bg-gray-100"
+                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Dashboard
                   </Link>
 
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3 py-2 text-red-500"
+                    className="w-full text-left px-4 py-2 text-red-500"
                   >
                     Logout
                   </button>
@@ -199,7 +200,6 @@ const Navbar = () => {
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* LINKS */}
         {navLinks.map((link) => (
           <Link
             key={link.href}
@@ -213,18 +213,15 @@ const Navbar = () => {
 
         <hr className="my-4" />
 
-        {/* MOBILE AUTH (FIXED) */}
+        {/* MOBILE AUTH */}
         {isAuthenticated && user ? (
           <div className="space-y-3">
+
             <p className="text-[#7AA209] font-semibold">
               {user.name}
             </p>
 
-            <Link
-              href="/dashboard"
-              onClick={() => setOpen(false)}
-              className="block"
-            >
+            <Link href="/dashboard" onClick={() => setOpen(false)}>
               Dashboard
             </Link>
 
@@ -239,22 +236,15 @@ const Navbar = () => {
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* ✅ LOGIN FIXED HERE */}
-            <Link
-              href="/login"
-              onClick={() => setOpen(false)}
-              className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
-            >
-              Login
-            </Link>
-
-            
-          </div>
+          <Link
+            href="/login"
+            onClick={() => setOpen(false)}
+            className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
+          >
+            Login
+          </Link>
         )}
       </div>
     </nav>
   );
-};
-
-export default Navbar;
+}
