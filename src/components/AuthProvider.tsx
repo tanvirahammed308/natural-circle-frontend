@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/redux/store";
-import { getCurrentUser } from "@/redux/features/auth/authThunk";
+import { getCurrentUser, registerUser, loginUser } from "@/redux/features/auth/authThunk";
 import { setAuthChecking } from "@/redux/features/auth/authSlice";
 import { listenAuthState } from "@/lib/auth";
 
@@ -14,16 +14,35 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     const unsubscribe = listenAuthState(async (firebaseUser) => {
-      console.log("Auth state changed:", firebaseUser?.uid);
+      console.log("Auth state changed:", firebaseUser?.uid, firebaseUser?.email);
       
       if (firebaseUser) {
-        // Firebase user exists, fetch MongoDB user data
         try {
+          // First try to get the user from MongoDB
           const result = await dispatch(getCurrentUser()).unwrap();
-          console.log("User data fetched:", result);
-        } catch (error) {
-          console.error("Failed to fetch user:", error);
-          dispatch(setAuthChecking(false));
+          console.log("User data fetched successfully:", result);
+        } catch (error: any) {
+          console.log("User not found in MongoDB, error:", error);
+          
+          // If user doesn't exist in MongoDB (404 or user not found), create them
+          if (error === "User not found" || error?.message === "User not found" || error?.includes("not found")) {
+            try {
+              console.log("Creating new user in MongoDB...");
+              const createResult = await dispatch(registerUser({
+                firebaseUid: firebaseUser.uid,
+                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
+                email: firebaseUser.email || "",
+                avatar: firebaseUser.photoURL || undefined,
+              })).unwrap();
+              console.log("User created successfully:", createResult);
+            } catch (createError) {
+              console.error("Failed to create user:", createError);
+              dispatch(setAuthChecking(false));
+            }
+          } else {
+            console.error("Error fetching user:", error);
+            dispatch(setAuthChecking(false));
+          }
         }
       } else {
         // No Firebase user, set auth as checked
