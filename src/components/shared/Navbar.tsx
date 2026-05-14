@@ -41,13 +41,6 @@ const Navbar = () => {
     }
   }, []);
 
-  // ================= CLOSE DROPDOWN ON CLICK OUTSIDE =================
-  useEffect(() => {
-    const close = () => setUserMenuOpen(false);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, []);
-
   // ================= THEME TOGGLE =================
   const toggleTheme = () => {
     const newTheme = darkMode ? "light" : "dark";
@@ -85,10 +78,6 @@ const Navbar = () => {
     setOpen(false);
   };
 
-  // ================= ACTIVE LINK =================
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
-
   const navLinks = [
     { name: "Home", href: "/" },
     { name: "Products", href: "/products" },
@@ -96,30 +85,28 @@ const Navbar = () => {
     { name: "Contact", href: "/contact" },
   ];
 
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md">
       <div className="max-w-7xl mx-auto h-16 flex items-center justify-between px-4">
 
-        {/* ================= LOGO ================= */}
-        <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/images/logo.png"
-            alt="logo"
-            width={120}
-            height={40}
-          />
+        {/* LOGO */}
+        <Link href="/">
+          <Image src="/images/logo.png" alt="logo" width={120} height={40} />
         </Link>
 
-        {/* ================= DESKTOP MENU ================= */}
+        {/* DESKTOP MENU */}
         <div className="hidden md:flex gap-6">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`font-medium transition ${
+              className={`font-medium ${
                 isActive(link.href)
                   ? "text-[#7AA209]"
-                  : "text-gray-700 dark:text-gray-300 hover:text-[#7AA209]"
+                  : "text-gray-700 dark:text-gray-300"
               }`}
             >
               {link.name}
@@ -127,50 +114,35 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* ================= RIGHT SIDE ================= */}
+        {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-4">
 
           {/* SEARCH */}
           {!showSearch ? (
-            <button
-              onClick={() => setShowSearch(true)}
-              className="text-xl text-gray-700 dark:text-white"
-            >
-              <MdSearch />
+            <button onClick={() => setShowSearch(true)}>
+              <MdSearch size={20} />
             </button>
           ) : (
-            <form
-              onSubmit={handleSearch}
-              className="flex items-center bg-white dark:bg-gray-800 border rounded-full overflow-hidden"
-            >
+            <form onSubmit={handleSearch} className="flex">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                className="border px-3 py-1 rounded-l"
                 placeholder="Search..."
-                className="w-56 px-4 py-2 outline-none"
               />
-
-              <button className="bg-[#7AA209] text-white px-3 py-2">
+              <button className="bg-[#7AA209] text-white px-3">
                 <MdSearch />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowSearch(false)}
-                className="px-3"
-              >
-                <IoMdClose />
               </button>
             </form>
           )}
 
           {/* THEME */}
-          <button onClick={toggleTheme} className="text-xl">
+          <button onClick={toggleTheme}>
             {darkMode ? <FaSun /> : <FaMoon />}
           </button>
 
           {/* CART */}
-          <Link href="/dashboard/cart" className="text-xl">
+          <Link href="/dashboard/cart">
             <FaShoppingCart />
           </Link>
 
@@ -182,24 +154,23 @@ const Navbar = () => {
                   e.stopPropagation();
                   setUserMenuOpen(!userMenuOpen);
                 }}
-                className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
+                className="bg-[#7AA209] text-white px-4 py-2 rounded-lg"
               >
-                <FaUser />
-                {user.name?.split(" ")[0]}
+                <FaUser /> {user.name?.split(" ")[0]}
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 shadow-md rounded w-40">
                   <Link
                     href="/dashboard"
-                    className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    className="block px-3 py-2 hover:bg-gray-100"
                   >
                     Dashboard
                   </Link>
 
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-red-500 hover:bg-red-100"
+                    className="w-full text-left px-3 py-2 text-red-500"
                   >
                     Logout
                   </button>
@@ -209,29 +180,26 @@ const Navbar = () => {
           ) : (
             <Link
               href="/login"
-              className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
+              className="bg-[#7AA209] text-white px-4 py-2 rounded-lg"
             >
-              <FaUser />
               Login
             </Link>
           )}
         </div>
 
-        {/* ================= MOBILE BUTTON ================= */}
-        <button
-          onClick={() => setOpen(!open)}
-          className="md:hidden text-3xl text-[#7AA209]"
-        >
-          {open ? <IoMdClose /> : <MdMenuOpen />}
+        {/* MOBILE BUTTON */}
+        <button onClick={() => setOpen(!open)} className="md:hidden">
+          {open ? <IoMdClose size={28} /> : <MdMenuOpen size={28} />}
         </button>
       </div>
 
-      {/* ================= MOBILE MENU ================= */}
+      {/* MOBILE MENU */}
       <div
-        className={`fixed top-16 right-0 w-72 h-screen bg-white dark:bg-gray-900 p-5 transition-transform md:hidden ${
+        className={`fixed top-16 right-0 w-72 h-screen bg-white dark:bg-gray-900 p-5 md:hidden transition-transform ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
+        {/* LINKS */}
         {navLinks.map((link) => (
           <Link
             key={link.href}
@@ -245,32 +213,50 @@ const Navbar = () => {
 
         <hr className="my-4" />
 
-        {/* MOBILE AUTH */}
+        {/* MOBILE AUTH (FIXED) */}
         {isAuthenticated && user ? (
           <div className="space-y-3">
             <p className="text-[#7AA209] font-semibold">
               {user.name}
             </p>
 
-            <Link href="/dashboard" onClick={() => setOpen(false)}>
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="block"
+            >
               Dashboard
             </Link>
 
             <button
-              onClick={handleLogout}
+              onClick={() => {
+                handleLogout();
+                setOpen(false);
+              }}
               className="w-full bg-red-500 text-white py-2 rounded-lg"
             >
               Logout
             </button>
           </div>
         ) : (
-          <Link
-            href="/login"
-            onClick={() => setOpen(false)}
-            className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
-          >
-            Login
-          </Link>
+          <div className="space-y-3">
+            {/* ✅ LOGIN FIXED HERE */}
+            <Link
+              href="/login"
+              onClick={() => setOpen(false)}
+              className="block text-center bg-[#7AA209] text-white py-2 rounded-lg"
+            >
+              Login
+            </Link>
+
+            <Link
+              href="/signup"
+              onClick={() => setOpen(false)}
+              className="block text-center border border-[#7AA209] text-[#7AA209] py-2 rounded-lg"
+            >
+              Register
+            </Link>
+          </div>
         )}
       </div>
     </nav>
