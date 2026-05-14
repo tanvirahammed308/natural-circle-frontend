@@ -11,26 +11,37 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    console.log("🔵 AuthProvider mounted - Starting...");
+    let isActive = true;
     
-    // Listen for auth changes (এটাই main listener)
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      console.log("🔄 Firebase auth changed:", firebaseUser?.email || "No user");
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+      if (!isActive) return;
       
       if (firebaseUser) {
-        const userData = {
-          _id: firebaseUser.uid,
-          firebaseUid: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
-          email: firebaseUser.email || "",
-          role: "user" as "user",
-          avatar: firebaseUser.photoURL || ""
-        };
-        
-        console.log("📤 Dispatching user to Redux:", userData);
-        dispatch(setUser(userData));
+        try {
+          // Always verify with fresh token
+          const token = await firebaseUser.getIdToken(true);
+          
+          const userData = {
+            _id: firebaseUser.uid,
+            firebaseUid: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
+            email: firebaseUser.email || "",
+            role: "user" as "user",
+            lastVerified: Date.now(),
+          };
+          
+          // Store minimal non-sensitive data
+          sessionStorage.setItem('userId', firebaseUser.uid);
+          sessionStorage.setItem('userName', userData.name);
+          
+          dispatch(setUser(userData));
+        } catch (error) {
+          console.error("Token refresh failed:", error);
+          dispatch(setAuthChecking(false));
+        }
       } else {
-        console.log("⚠️ No Firebase user");
+        // Clear all cached data
+        sessionStorage.clear();
         dispatch(setAuthChecking(false));
       }
       
@@ -38,13 +49,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     });
 
     return () => {
-      console.log("🔴 AuthProvider unmounting");
+      isActive = false;
       unsubscribe();
     };
   }, [dispatch]);
 
-  // Show loading until Firebase initializes
   if (!isInitialized) {
+    // Loading spinner সরাসরি JSX এ দিন
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-50">
         <div className="text-center">
