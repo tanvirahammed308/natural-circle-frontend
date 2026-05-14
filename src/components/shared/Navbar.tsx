@@ -7,21 +7,19 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { RootState, AppDispatch } from "@/redux/store";
-import { logout } from "@/redux/features/auth/authSlice";
+import { logout, setUser } from "@/redux/features/auth/authSlice";
+import { getCurrentUser } from "@/redux/features/auth/authThunk";
 
 import Swal from "sweetalert2";
 
-// Icons
 import { MdMenuOpen, MdSearch } from "react-icons/md";
 import { IoMdClose } from "react-icons/io";
 import { FaMoon, FaSun, FaUser, FaShoppingCart } from "react-icons/fa";
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const [search, setSearch] = useState("");
   const [dropdown, setDropdown] = useState(false);
+  const [search, setSearch] = useState("");
 
   const { user, isAuthenticated } = useSelector(
     (state: RootState) => state.auth
@@ -31,28 +29,17 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // close dropdown on outside click
+  // ================= AUTO LOGIN CHECK =================
+  useEffect(() => {
+    dispatch(getCurrentUser());
+  }, [dispatch]);
+
+  // ================= CLOSE DROPDOWN OUTSIDE CLICK =================
   useEffect(() => {
     const close = () => setDropdown(false);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
-
-  // theme
-  useEffect(() => {
-    const theme = localStorage.getItem("theme");
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-      setDarkMode(true);
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = darkMode ? "light" : "dark";
-    setDarkMode(!darkMode);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-  };
 
   const handleLogout = () => {
     dispatch(logout());
@@ -65,16 +52,6 @@ export default function Navbar() {
     });
 
     router.push("/login");
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!search.trim()) return;
-
-    router.push(`/products?search=${search}`);
-    setSearch("");
-    setShowSearch(false);
-    setOpen(false);
   };
 
   const navLinks = [
@@ -102,7 +79,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`${
+              className={`font-medium ${
                 isActive(link.href)
                   ? "text-[#7AA209]"
                   : "text-gray-700 dark:text-gray-300"
@@ -116,39 +93,16 @@ export default function Navbar() {
         {/* RIGHT SIDE */}
         <div className="hidden md:flex items-center gap-4">
 
-          {/* SEARCH */}
-          {!showSearch ? (
-            <button onClick={() => setShowSearch(true)}>
-              <MdSearch size={20} />
-            </button>
-          ) : (
-            <form onSubmit={handleSearch} className="flex">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="border px-3 py-1 rounded-l"
-                placeholder="Search..."
-              />
-              <button className="bg-[#7AA209] text-white px-3">
-                <MdSearch />
-              </button>
-            </form>
-          )}
-
-          {/* THEME */}
-          <button onClick={toggleTheme}>
-            {darkMode ? <FaSun /> : <FaMoon />}
-          </button>
-
           {/* CART */}
           <Link href="/dashboard/cart">
             <FaShoppingCart />
           </Link>
 
-          {/* USER LOGIN / DROPDOWN */}
+          {/* USER AUTH */}
           {isAuthenticated && user ? (
             <div className="relative">
 
+              {/* USER BUTTON */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -157,11 +111,12 @@ export default function Navbar() {
                 className="flex items-center gap-2 bg-[#7AA209] text-white px-3 py-2 rounded-lg"
               >
                 <FaUser />
-                {user.name?.split(" ")[0]}
+                {user?.name?.split(" ")[0]}
               </button>
 
+              {/* DROPDOWN */}
               {dropdown && (
-                <div className="absolute right-0 mt-2 bg-white dark:bg-gray-800 shadow-md rounded w-44">
+                <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 shadow-lg rounded">
                   <Link
                     href="/dashboard"
                     className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -188,7 +143,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* MOBILE BUTTON */}
+        {/* MOBILE MENU BUTTON */}
         <button onClick={() => setOpen(!open)} className="md:hidden">
           {open ? <IoMdClose size={28} /> : <MdMenuOpen size={28} />}
         </button>
@@ -218,10 +173,14 @@ export default function Navbar() {
           <div className="space-y-3">
 
             <p className="text-[#7AA209] font-semibold">
-              {user.name}
+              {user?.name}
             </p>
 
-            <Link href="/dashboard" onClick={() => setOpen(false)}>
+            <Link
+              href="/dashboard"
+              onClick={() => setOpen(false)}
+              className="block"
+            >
               Dashboard
             </Link>
 
