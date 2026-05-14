@@ -1,3 +1,4 @@
+// redux/features/auth/authSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { AuthState, User } from "./authTypes";
 
@@ -50,20 +51,17 @@ const authSlice = createSlice({
   },
 
   extraReducers: (builder) => {
-
     // ================= REGISTER =================
     builder.addCase(registerUser.pending, (state) => {
       state.loading = true;
       state.error = null;
     });
-
     builder.addCase(registerUser.fulfilled, (state, action) => {
       state.loading = false;
       state.user = action.payload;
       state.isAuthenticated = true;
-      state.authChecking = false; // ✅ FIX
+      state.authChecking = false;
     });
-
     builder.addCase(registerUser.rejected, (state, action) => {
       state.loading = false;
       state.error = (action.payload as string) || "Register failed";
@@ -75,14 +73,12 @@ const authSlice = createSlice({
       state.loading = true;
       state.error = null;
     });
-
     builder.addCase(loginUser.fulfilled, (state, action) => {
       state.loading = false;
       state.user = action.payload;
       state.isAuthenticated = true;
-      state.authChecking = false; // ✅ FIX
+      state.authChecking = false;
     });
-
     builder.addCase(loginUser.rejected, (state, action) => {
       state.loading = false;
       state.error = (action.payload as string) || "Login failed";
@@ -91,17 +87,25 @@ const authSlice = createSlice({
     });
 
     // ================= CURRENT USER =================
+    builder.addCase(getCurrentUser.pending, (state) => {
+      state.loading = true;
+      state.authChecking = true;
+    });
     builder.addCase(getCurrentUser.fulfilled, (state, action) => {
+      state.loading = false;
       state.user = action.payload;
       state.isAuthenticated = true;
       state.authChecking = false;
+      state.error = null;
     });
-
-    builder.addCase(getCurrentUser.rejected, (state) => {
-  state.user = null;
-  state.isAuthenticated = false;
-  state.authChecking = false;
-});
+    builder.addCase(getCurrentUser.rejected, (state, action) => {
+      state.loading = false;
+      state.user = null;
+      state.isAuthenticated = false;
+      state.authChecking = false;
+      state.error = action.payload as string;
+      console.error("getCurrentUser rejected:", action.payload);
+    });
 
     // ================= UPDATE PROFILE =================
     builder.addCase(updateUserProfile.fulfilled, (state, action) => {
@@ -112,22 +116,18 @@ const authSlice = createSlice({
     builder.addCase(getAllUsers.fulfilled, (state, action) => {
       state.users = action.payload || [];
     });
-
     builder.addCase(getUserById.fulfilled, (state, action) => {
       state.user = action.payload;
     });
 
     // ================= DELETE USER =================
     builder.addCase(deleteUser.fulfilled, (state, action) => {
-      state.users = state.users.filter(
-        (u) => u._id !== action.payload
-      );
+      state.users = state.users.filter((u) => u._id !== action.payload);
     });
 
     // ================= CHANGE ROLE =================
     builder.addCase(changeUserRole.fulfilled, (state, action) => {
       const updatedUser = action.payload;
-
       state.users = state.users.map((u) =>
         u._id === updatedUser._id ? updatedUser : u
       );
@@ -135,7 +135,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setUser, logout, setAuthChecking, clearError } =
-  authSlice.actions;
-
+export const { setUser, logout, setAuthChecking, clearError } = authSlice.actions;
 export default authSlice.reducer;
