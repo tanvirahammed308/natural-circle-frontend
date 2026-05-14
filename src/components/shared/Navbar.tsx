@@ -8,6 +8,7 @@ import { useDispatch, useSelector } from "react-redux";
 
 import { RootState, AppDispatch } from "@/redux/store";
 import { logout } from "@/redux/features/auth/authSlice";
+import { logoutUser } from "@/lib/auth"; // Import Firebase logout
 
 import Swal from "sweetalert2";
 
@@ -59,17 +60,29 @@ const Navbar = () => {
   };
 
   // ================= LOGOUT =================
-  const handleLogout = () => {
-    dispatch(logout());
+  const handleLogout = async () => {
+    try {
+      // Firebase logout
+      await logoutUser();
+      // Redux logout
+      dispatch(logout());
 
-    Swal.fire({
-      icon: "success",
-      title: "Logged out successfully",
-      timer: 1200,
-      showConfirmButton: false,
-    });
+      Swal.fire({
+        icon: "success",
+        title: "Logged out successfully",
+        timer: 1200,
+        showConfirmButton: false,
+      });
 
-    router.push("/login");
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Logout failed",
+        text: "Please try again",
+      });
+    }
   };
 
   // ================= SEARCH =================
@@ -95,6 +108,11 @@ const Navbar = () => {
     { name: "About", href: "/about" },
     { name: "Contact", href: "/contact" },
   ];
+
+  // Debug log to check user state
+  useEffect(() => {
+    console.log("Navbar user state:", { user, isAuthenticated });
+  }, [user, isAuthenticated]);
 
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md">
@@ -185,7 +203,7 @@ const Navbar = () => {
                 className="flex items-center gap-2 bg-[#7AA209] text-white px-4 py-2 rounded-lg"
               >
                 <FaUser />
-                {user.name?.split(" ")[0]}
+                {user.name?.split(" ")[0] || user.email?.split("@")[0]}
               </button>
 
               {userMenuOpen && (
@@ -193,6 +211,7 @@ const Navbar = () => {
                   <Link
                     href="/dashboard"
                     className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    onClick={() => setUserMenuOpen(false)}
                   >
                     Dashboard
                   </Link>
@@ -249,10 +268,14 @@ const Navbar = () => {
         {isAuthenticated && user ? (
           <div className="space-y-3">
             <p className="text-[#7AA209] font-semibold">
-              {user.name}
+              {user.name || user.email}
             </p>
 
-            <Link href="/dashboard" onClick={() => setOpen(false)}>
+            <Link 
+              href="/dashboard" 
+              onClick={() => setOpen(false)}
+              className="block"
+            >
               Dashboard
             </Link>
 
