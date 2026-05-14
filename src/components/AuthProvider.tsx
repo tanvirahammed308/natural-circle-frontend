@@ -8,24 +8,26 @@ import { getCurrentUser } from "@/redux/features/auth/authThunk";
 import { setAuthChecking } from "@/redux/features/auth/authSlice";
 import { listenAuthState } from "@/lib/auth";
 
-
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const dispatch = useDispatch<AppDispatch>();
   const { authChecking } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
-    // Use your existing listenAuthState function
     const unsubscribe = listenAuthState(async (firebaseUser) => {
+      console.log("Auth state changed:", firebaseUser?.uid);
+      
       if (firebaseUser) {
         // Firebase user exists, fetch MongoDB user data
         try {
-          await dispatch(getCurrentUser()).unwrap();
+          const result = await dispatch(getCurrentUser()).unwrap();
+          console.log("User data fetched:", result);
         } catch (error) {
           console.error("Failed to fetch user:", error);
           dispatch(setAuthChecking(false));
         }
       } else {
         // No Firebase user, set auth as checked
+        console.log("No Firebase user");
         dispatch(setAuthChecking(false));
       }
     });
