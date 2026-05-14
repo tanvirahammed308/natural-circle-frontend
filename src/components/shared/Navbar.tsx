@@ -50,14 +50,37 @@ const Navbar = () => {
     return () => window.removeEventListener("click", close);
   }, []);
 
-  // ================= CHECK FIREBASE AUTH =================
+  // ================= RESTORE USER FROM LOCALSTORAGE ON REFRESH =================
+  useEffect(() => {
+    const restoreUser = () => {
+      // First check if user already exists in Redux
+      if (user) return;
+      
+      // Try to restore from localStorage
+      const storedUser = localStorage.getItem('userData');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          console.log("📦 User restored from localStorage:", userData.email);
+          dispatch(setUser(userData));
+        } catch (error) {
+          console.error("Error parsing stored user:", error);
+          localStorage.removeItem('userData');
+        }
+      }
+    };
+    
+    restoreUser();
+  }, [user, dispatch]);
+
+  // ================= CHECK FIREBASE AUTH AND SYNC =================
   useEffect(() => {
     const checkFirebaseAuth = async () => {
       try {
         const firebaseUser = auth.currentUser;
-        console.log("Firebase user:", firebaseUser?.email);
+        console.log("🔥 Firebase user:", firebaseUser?.email);
         
-        if (firebaseUser && !user) {
+        if (firebaseUser) {
           const userData = {
             _id: firebaseUser.uid,
             firebaseUid: firebaseUser.uid,
@@ -65,8 +88,18 @@ const Navbar = () => {
             email: firebaseUser.email || "",
             role: "user" as "user",
           };
-          dispatch(setUser(userData));
-          console.log("User set from Navbar:", userData);
+          
+          // Save to localStorage for persistence
+          localStorage.setItem('userData', JSON.stringify(userData));
+          
+          // Only dispatch if Redux doesn't have user or user is different
+          if (!user || user._id !== firebaseUser.uid) {
+            console.log("📤 Syncing user from Firebase to Redux:", userData.email);
+            dispatch(setUser(userData));
+          }
+        } else if (!user) {
+          // No Firebase user and no Redux user, clear localStorage
+          localStorage.removeItem('userData');
         }
       } catch (error) {
         console.error("Error checking Firebase auth:", error);
@@ -74,6 +107,25 @@ const Navbar = () => {
     };
     
     checkFirebaseAuth();
+    
+    // Listen for auth state changes
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        const userData = {
+          _id: firebaseUser.uid,
+          firebaseUid: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
+          email: firebaseUser.email || "",
+          role: "user" as "user",
+        };
+        localStorage.setItem('userData', JSON.stringify(userData));
+        dispatch(setUser(userData));
+      } else {
+        localStorage.removeItem('userData');
+      }
+    });
+    
+    return () => unsubscribe();
   }, [user, dispatch]);
 
   // ================= THEME TOGGLE =================
@@ -90,6 +142,7 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await logoutUser();
+      localStorage.removeItem('userData'); // Clear stored user data
       dispatch(logout());
 
       Swal.fire({

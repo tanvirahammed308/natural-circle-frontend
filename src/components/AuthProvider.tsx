@@ -13,12 +13,28 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     let isActive = true;
     
+    // 🔥 IMPORTANT: First check localStorage for cached user
+    const cachedUser = localStorage.getItem('userData');
+    if (cachedUser && isActive) {
+      try {
+        const userData = JSON.parse(cachedUser);
+        console.log("📦 User loaded from localStorage cache:", userData.email);
+        dispatch(setUser(userData));
+      } catch (error) {
+        console.error("Error parsing cached user:", error);
+        localStorage.removeItem('userData');
+      }
+    }
+    
+    // 🔥 Listen to Firebase auth state
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (!isActive) return;
       
+      console.log("🔄 Firebase auth state changed:", firebaseUser?.email || "No user");
+      
       if (firebaseUser) {
         try {
-          // Always verify with fresh token
+          // Get fresh token
           const token = await firebaseUser.getIdToken(true);
           
           const userData = {
@@ -27,21 +43,26 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
             email: firebaseUser.email || "",
             role: "user" as "user",
+            avatar: firebaseUser.photoURL || "",
             lastVerified: Date.now(),
           };
           
-          // Store minimal non-sensitive data
-          sessionStorage.setItem('userId', firebaseUser.uid);
-          sessionStorage.setItem('userName', userData.name);
+          // 🔥 Save to localStorage (persists through page refresh)
+          localStorage.setItem('userData', JSON.stringify(userData));
+          console.log("💾 User saved to localStorage:", userData.email);
           
+          // Update Redux
           dispatch(setUser(userData));
+          
         } catch (error) {
           console.error("Token refresh failed:", error);
+          localStorage.removeItem('userData');
           dispatch(setAuthChecking(false));
         }
       } else {
-        // Clear all cached data
-        sessionStorage.clear();
+        // 🔥 Clear localStorage on logout
+        console.log("⚠️ No Firebase user, clearing cache");
+        localStorage.removeItem('userData');
         dispatch(setAuthChecking(false));
       }
       
@@ -55,7 +76,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   }, [dispatch]);
 
   if (!isInitialized) {
-    // Loading spinner সরাসরি JSX এ দিন
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-50">
         <div className="text-center">
