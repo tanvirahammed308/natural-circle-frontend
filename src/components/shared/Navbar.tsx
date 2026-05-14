@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { RootState, AppDispatch } from "@/redux/store";
-import { logout } from "@/redux/features/auth/authSlice";
+import { logout, setUser } from "@/redux/features/auth/authSlice";
 import { logoutUser } from "@/lib/auth"; // Import Firebase logout
 
 import Swal from "sweetalert2";
@@ -113,6 +113,31 @@ const Navbar = () => {
   useEffect(() => {
     console.log("Navbar user state:", { user, isAuthenticated });
   }, [user, isAuthenticated]);
+  // Navbar.tsx - এই useEffect যোগ করুন (অন্যান্য useEffect এর সাথে)
+useEffect(() => {
+  console.log("Navbar - Current user from Redux:", user);
+  console.log("Navbar - Is Authenticated:", isAuthenticated);
+  
+  // যদি Redux এ user না থাকে কিন্তু Firebase এ থাকে
+  const checkFirebase = async () => {
+    const { auth } = await import('@/lib/firebase');
+    const firebaseUser = auth.currentUser;
+    
+    if (firebaseUser && !user) {
+      console.log("Firebase user found but Redux empty - fixing...");
+      const userData = {
+        _id: firebaseUser.uid,
+        firebaseUid: firebaseUser.uid,
+        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || "User",
+        email: firebaseUser.email || "",
+        role: "user" as "user",
+      };
+      dispatch(setUser(userData));
+    }
+  };
+  
+  checkFirebase();
+}, [user, isAuthenticated, dispatch]);
 
   return (
     <nav className="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md">
