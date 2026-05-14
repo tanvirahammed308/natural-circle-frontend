@@ -3,11 +3,13 @@
 import { ThemeProvider } from 'next-themes'
 
 import ReduxProvider from '@/redux/provider'
+import AuthProvider from '@/components/AuthProvider'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ReduxProvider>
-      <ThemeProvider 
+      <AuthProvider>
+<ThemeProvider 
         attribute="class" 
         defaultTheme="system" 
         enableSystem
@@ -15,6 +17,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       >
         {children}
       </ThemeProvider>
+      </AuthProvider>
+      
     </ReduxProvider>
   )
 }
