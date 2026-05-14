@@ -12,9 +12,6 @@ import {
   changeUserRole,
 } from "./authThunk";
 
-
-// INITIAL STATE
-
 const initialState: AuthState = {
   user: null,
   users: [],
@@ -23,8 +20,6 @@ const initialState: AuthState = {
   error: null,
   isAuthenticated: false,
 };
-
-// SLICE
 
 const authSlice = createSlice({
   name: "auth",
@@ -55,9 +50,8 @@ const authSlice = createSlice({
   },
 
   extraReducers: (builder) => {
-    
-    // REGISTER
-    
+
+    // ================= REGISTER =================
     builder.addCase(registerUser.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -67,15 +61,16 @@ const authSlice = createSlice({
       state.loading = false;
       state.user = action.payload;
       state.isAuthenticated = true;
+      state.authChecking = false; // ✅ FIX
     });
 
     builder.addCase(registerUser.rejected, (state, action) => {
       state.loading = false;
       state.error = (action.payload as string) || "Register failed";
+      state.authChecking = false;
     });
 
-    // LOGIN
-
+    // ================= LOGIN =================
     builder.addCase(loginUser.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -85,14 +80,17 @@ const authSlice = createSlice({
       state.loading = false;
       state.user = action.payload;
       state.isAuthenticated = true;
+      state.authChecking = false; // ✅ FIX
     });
 
     builder.addCase(loginUser.rejected, (state, action) => {
       state.loading = false;
       state.error = (action.payload as string) || "Login failed";
+      state.isAuthenticated = false;
+      state.authChecking = false;
     });
 
-    // CURRENT USER
+    // ================= CURRENT USER =================
     builder.addCase(getCurrentUser.fulfilled, (state, action) => {
       state.user = action.payload;
       state.isAuthenticated = true;
@@ -105,39 +103,28 @@ const authSlice = createSlice({
       state.authChecking = false;
     });
 
-    
-    // UPDATE PROFILE
-    
+    // ================= UPDATE PROFILE =================
     builder.addCase(updateUserProfile.fulfilled, (state, action) => {
       state.user = action.payload;
     });
 
-    
-    // GET ALL USERS (ADMIN)
-    
+    // ================= GET USERS =================
     builder.addCase(getAllUsers.fulfilled, (state, action) => {
       state.users = action.payload || [];
     });
 
-    
-    // GET USER BY ID
-    
     builder.addCase(getUserById.fulfilled, (state, action) => {
       state.user = action.payload;
     });
 
-    
-    // DELETE USER
-    
+    // ================= DELETE USER =================
     builder.addCase(deleteUser.fulfilled, (state, action) => {
       state.users = state.users.filter(
         (u) => u._id !== action.payload
       );
     });
 
-    // =========================
-    // CHANGE ROLE
-    // =========================
+    // ================= CHANGE ROLE =================
     builder.addCase(changeUserRole.fulfilled, (state, action) => {
       const updatedUser = action.payload;
 
