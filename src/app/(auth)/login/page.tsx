@@ -67,9 +67,25 @@ export default function LoginPage() {
       console.log("2. Firebase login success:", firebaseUser.email);
 
       // 2. Login in MongoDB backend
-      await api.post("/auth/login", {
-        firebaseUid: firebaseUser.uid,
-      });
+      try {
+  const res = await api.post("/auth/login", {
+    firebaseUid: firebaseUser.uid,
+  });
+
+  console.log("MongoDB response:", res.data);
+
+} catch (error: any) {
+  console.log("BACKEND ERROR:");
+  console.log(error);
+
+  console.log("STATUS:");
+  console.log(error.response?.status);
+
+  console.log("DATA:");
+  console.log(error.response?.data);
+
+  throw error;
+}
       console.log("3. MongoDB login success");
 
       // 3. 🔴 গুরুত্বপূর্ণ: Redux এ user সেট করুন
