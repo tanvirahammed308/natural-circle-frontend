@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
+
 import {
   setUser,
   setAuthChecking,
 } from "@/redux/features/auth/authSlice";
 
 import { auth } from "@/lib/firebase";
+import api from "@/lib/axios";
 
 export default function AuthProvider({
   children,
@@ -16,63 +18,38 @@ export default function AuthProvider({
 }) {
   const dispatch = useDispatch();
 
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitialized, setIsInitialized] =
+    useState(false);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(
-      async (firebaseUser) => {
-        console.log(
-          "🔥 Firebase auth changed:",
-          firebaseUser?.email || "No user"
-        );
+    const unsubscribe =
+      auth.onAuthStateChanged(async (firebaseUser) => {
+        try {
+          if (firebaseUser) {
+            // Fetch MongoDB profile
+            const res = await api.get("/auth/profile");
 
-        if (firebaseUser) {
-          const userData = {
-            _id: firebaseUser.uid,
-            firebaseUid: firebaseUser.uid,
-            name:
-              firebaseUser.displayName ||
-              firebaseUser.email?.split("@")[0] ||
-              "User",
+            dispatch(setUser(res.data.user));
+          }
 
-            email: firebaseUser.email || "",
+          dispatch(setAuthChecking(false));
 
-            role: "user" as "user",
+          setIsInitialized(true);
 
-            avatar: firebaseUser.photoURL || "",
-          };
+        } catch (error) {
+          console.error(error);
 
-          localStorage.setItem(
-            "userData",
-            JSON.stringify(userData)
-          );
+          dispatch(setAuthChecking(false));
 
-          dispatch(setUser(userData));
-        } else {
-          localStorage.removeItem("userData");
+          setIsInitialized(true);
         }
-
-        dispatch(setAuthChecking(false));
-
-        setIsInitialized(true);
-      }
-    );
+      });
 
     return () => unsubscribe();
   }, [dispatch]);
 
   if (!isInitialized) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-gray-900 z-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7AA209] mx-auto"></div>
-
-          <p className="mt-4 text-gray-600 dark:text-gray-300">
-            Loading...
-          </p>
-        </div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   return <>{children}</>;
