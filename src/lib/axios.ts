@@ -11,35 +11,18 @@ const api = axios.create({
   },
 });
 
-// SAFE TOKEN GETTER
-const getToken = async () => {
+api.interceptors.request.use(async (config) => {
   const user = auth.currentUser;
 
-  if (!user) return null;
+  if (user) {
+    const token = await user.getIdToken();
 
-  try {
-    return await user.getIdToken();
-  } catch (err) {
-    console.log("Token error:", err);
-    return null;
+    config.headers = config.headers || {};
+
+    config.headers.Authorization = `Bearer ${token}`;
   }
-};
 
-api.interceptors.request.use(
-  async (config) => {
-    const token = await getToken();
-
-    // ✅ SAFE HEADERS INIT (IMPORTANT FIX)
-    config.headers = config.headers ?? {};
-
-    if (token) {
-      (config.headers as any).Authorization =
-        `Bearer ${token}`;
-    }
-
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  return config;
+});
 
 export default api;
