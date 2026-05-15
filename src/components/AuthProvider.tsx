@@ -1,3 +1,5 @@
+// components/AuthProvider.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -25,20 +27,42 @@ export default function AuthProvider({
     const unsubscribe =
       auth.onAuthStateChanged(async (firebaseUser) => {
         try {
+          console.log(
+            "🔥 Firebase user:",
+            firebaseUser?.email || "No User"
+          );
+
           if (firebaseUser) {
+            // Get Firebase token
+            const token =
+              await firebaseUser.getIdToken();
+
+            console.log("✅ Token received");
+
             // Fetch MongoDB profile
-            const res = await api.get("/auth/profile");
+            const res = await api.get(
+              "/auth/profile",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            console.log(
+              "✅ MongoDB profile fetched:",
+              res.data
+            );
 
             dispatch(setUser(res.data.user));
           }
 
-          dispatch(setAuthChecking(false));
-
-          setIsInitialized(true);
-
         } catch (error) {
-          console.error(error);
-
+          console.error(
+            "❌ AuthProvider Error:",
+            error
+          );
+        } finally {
           dispatch(setAuthChecking(false));
 
           setIsInitialized(true);
@@ -49,7 +73,17 @@ export default function AuthProvider({
   }, [dispatch]);
 
   if (!isInitialized) {
-    return <div>Loading...</div>;
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#7AA209] mx-auto"></div>
+
+          <p className="mt-4 text-gray-600">
+            Loading...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
