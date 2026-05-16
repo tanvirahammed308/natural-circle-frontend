@@ -28,13 +28,16 @@ import { AppDispatch } from "@/redux/store";
 // =========================
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required"),
+
   email: z.string().email("Invalid email address"),
+
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
     .regex(/[A-Z]/, "Must include at least 1 uppercase letter")
     .regex(/[0-9]/, "Must include at least 1 number")
     .regex(/[^A-Za-z0-9]/, "Must include at least 1 special character"),
+
   terms: z.boolean().refine((val) => val === true, {
     message: "You must accept terms & conditions",
   }),
@@ -44,10 +47,13 @@ type FormData = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
+
   const [googleLoading, setGoogleLoading] = useState(false);
-  
+
   const router = useRouter();
+
   const dispatch = useDispatch<AppDispatch>();
 
   const {
@@ -59,49 +65,50 @@ export default function SignupPage() {
   });
 
   // =========================
-  // EMAIL SIGNUP (FIREBASE + MONGODB)
+  // EMAIL SIGNUP
   // =========================
   const onSubmit = async (data: FormData) => {
     try {
       setLoading(true);
-      console.log("1. Starting email signup...");
 
-      // 1. Firebase user create
+      console.log("1. Starting signup...");
+
+      // FIREBASE USER CREATE
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         data.email,
         data.password
       );
-      const firebaseUser = userCredential.user;
-      console.log("2. Firebase user created:", firebaseUser.email);
 
-      // 2. Set display name in Firebase
+      const firebaseUser = userCredential.user;
+
+      console.log("2. Firebase user created");
+
+      // UPDATE FIREBASE PROFILE
       await updateProfile(firebaseUser, {
         displayName: data.name,
       });
-      console.log("3. Display name set in Firebase");
 
-      // 3. Send to MongoDB backend
+      console.log("3. Firebase profile updated");
+
+      // SAVE USER IN MONGODB
+      console.log("4. Sending user to backend...");
+
       const response = await api.post("/auth/register", {
         firebaseUid: firebaseUser.uid,
         name: data.name,
         email: data.email,
         avatar: "",
       });
-      console.log("4. User registered in MongoDB:", response.data);
 
-      // 4. Set user in Redux
-      const userData = response.data.user || {
-        _id: firebaseUser.uid,
-        firebaseUid: firebaseUser.uid,
-        name: data.name,
-        email: data.email,
-        role: "user" as "user",
-      };
-      dispatch(setUser(userData));
-      console.log("5. User set in Redux");
+      console.log("5. Backend response:", response.data);
 
-      // 5. Success message
+      // SAVE USER IN REDUX
+      dispatch(setUser(response.data.user));
+
+      console.log("6. User saved in Redux");
+
+      // SUCCESS ALERT
       await Swal.fire({
         icon: "success",
         title: "Success!",
@@ -110,73 +117,91 @@ export default function SignupPage() {
         showConfirmButton: false,
       });
 
-      console.log("6. Redirecting to home...");
+      // REDIRECT
       router.push("/");
       router.refresh();
-      
+
     } catch (err: any) {
-      console.error("Signup error:", err);
-      
-      let errorMessage = err.message;
-      if (err.code === 'auth/email-already-in-use') {
-        errorMessage = "Email already in use. Please login instead.";
-      } else if (err.code === 'auth/weak-password') {
-        errorMessage = "Password is too weak.";
-      } else if (err.response?.data?.message) {
+      console.error("SIGNUP ERROR:", err);
+
+      console.log("BACKEND ERROR:", err.response?.data);
+
+      let errorMessage = "Something went wrong";
+
+      // FIREBASE ERRORS
+      if (err.code === "auth/email-already-in-use") {
+        errorMessage = "Email already exists";
+      } else if (err.code === "auth/weak-password") {
+        errorMessage = "Password is too weak";
+      }
+
+      // BACKEND ERRORS
+      else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       }
-      
+
       Swal.fire({
         icon: "error",
         title: "Signup Failed",
         text: errorMessage,
       });
+
     } finally {
       setLoading(false);
     }
   };
 
   // =========================
-  // GOOGLE SIGNUP (FIREBASE + MONGODB)
+  // GOOGLE SIGNUP
   // =========================
   const handleGoogle = async () => {
     try {
       setGoogleLoading(true);
+
       console.log("1. Starting Google signup...");
 
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      console.log("2. Google signup success:", user.email);
 
-      // Send to MongoDB
+      const result = await signInWithPopup(auth, provider);
+
+      const user = result.user;
+
+      console.log("2. Google login success:", user.email);
+
       let response;
+
       try {
+        // LOGIN EXISTING USER
         response = await api.post("/auth/login", {
           firebaseUid: user.uid,
         });
-        console.log("3. User already exists in MongoDB");
-      } catch {
+
+        console.log("3. Existing user logged in");
+
+      } catch (loginError: any) {
+
+        console.log(
+          "LOGIN ERROR:",
+          loginError.response?.data || loginError
+        );
+
+        // REGISTER NEW USER
         response = await api.post("/auth/register", {
           firebaseUid: user.uid,
           name: user.displayName || "Google User",
           email: user.email,
           avatar: user.photoURL || "",
         });
-        console.log("3. New user registered in MongoDB");
+
+        console.log("4. New user registered");
       }
 
-      // Set user in Redux
-      const userData = response.data.user || {
-        _id: user.uid,
-        firebaseUid: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || "User",
-        email: user.email || "",
-        role: "user" as "user",
-      };
-      dispatch(setUser(userData));
-      console.log("4. User set in Redux");
+      // SAVE USER IN REDUX
+      dispatch(setUser(response.data.user));
 
+      console.log("5. User saved in Redux");
+
+      // SUCCESS ALERT
       await Swal.fire({
         icon: "success",
         title: "Success!",
@@ -185,26 +210,30 @@ export default function SignupPage() {
         showConfirmButton: false,
       });
 
-      console.log("5. Redirecting to home...");
+      // REDIRECT
       router.push("/");
       router.refresh();
-      
+
     } catch (err: any) {
-      console.error("Google signup error:", err);
-      
-      if (err.code === 'auth/popup-blocked') {
-        Swal.fire({
-          icon: "warning",
-          title: "Popup Blocked",
-          text: "Please allow popups for this website and try again.",
-        });
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Google Signup Failed",
-          text: err.message,
-        });
+      console.error("GOOGLE SIGNUP ERROR:", err);
+
+      console.log("BACKEND ERROR:", err.response?.data);
+
+      let errorMessage = "Google signup failed";
+
+      if (err.code === "auth/popup-blocked") {
+        errorMessage =
+          "Popup blocked. Please allow popups and try again.";
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
       }
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: errorMessage,
+      });
+
     } finally {
       setGoogleLoading(false);
     }
@@ -213,16 +242,24 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4 py-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-4">
-        
+
         {/* TITLE */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-800">Create Account</h1>
-          <p className="text-gray-500 mt-1">Sign up to get started</p>
+          <h1 className="text-3xl font-bold text-gray-800">
+            Create Account
+          </h1>
+
+          <p className="text-gray-500 mt-1">
+            Sign up to get started
+          </p>
         </div>
 
         {/* FORM */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-4"
+        >
+
           {/* NAME */}
           <div>
             <input
@@ -231,8 +268,11 @@ export default function SignupPage() {
               placeholder="Full Name"
               className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500"
             />
+
             {errors.name && (
-              <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.name.message}
+              </p>
             )}
           </div>
 
@@ -244,43 +284,69 @@ export default function SignupPage() {
               placeholder="Email address"
               className="w-full px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-green-500"
             />
+
             {errors.email && (
-              <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
           {/* PASSWORD */}
           <div>
             <div className="flex items-center border rounded-lg px-4 py-3 focus-within:ring-2 focus-within:ring-green-500">
+
               <input
                 {...register("password")}
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 className="flex-1 bg-transparent outline-none"
               />
+
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() =>
+                  setShowPassword(!showPassword)
+                }
                 className="text-gray-500 hover:text-green-600"
               >
-                {showPassword ? <FaRegEyeSlash /> : <FaRegEye />}
+                {showPassword ? (
+                  <FaRegEyeSlash />
+                ) : (
+                  <FaRegEye />
+                )}
               </button>
             </div>
+
             {errors.password && (
-              <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+              <p className="text-red-500 text-sm mt-1">
+                {errors.password.message}
+              </p>
             )}
           </div>
 
           {/* TERMS */}
           <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input type="checkbox" {...register("terms")} className="w-4 h-4" />
-            I agree to the{" "}
-            <Link href="/terms" className="text-green-600 hover:underline">
+            <input
+              type="checkbox"
+              {...register("terms")}
+              className="w-4 h-4"
+            />
+
+            I agree to the
+
+            <Link
+              href="/terms"
+              className="text-green-600 hover:underline"
+            >
               Terms & Conditions
             </Link>
           </label>
+
           {errors.terms && (
-            <p className="text-red-500 text-sm">{errors.terms.message}</p>
+            <p className="text-red-500 text-sm">
+              {errors.terms.message}
+            </p>
           )}
 
           {/* SUBMIT BUTTON */}
@@ -289,14 +355,20 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full bg-[#7AA209] text-white py-3 rounded-lg font-semibold transition hover:bg-[#6b8f08] disabled:opacity-50"
           >
-            {loading ? "Creating Account..." : "Sign Up"}
+            {loading
+              ? "Creating Account..."
+              : "Sign Up"}
           </button>
         </form>
 
         {/* DIVIDER */}
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-gray-300"></div>
-          <span className="text-sm text-gray-400">OR</span>
+
+          <span className="text-sm text-gray-400">
+            OR
+          </span>
+
           <div className="flex-1 h-px bg-gray-300"></div>
         </div>
 
@@ -307,13 +379,20 @@ export default function SignupPage() {
           className="w-full flex items-center justify-center gap-3 border py-3 rounded-lg hover:bg-gray-100 transition"
         >
           <FcGoogle size={22} />
-          {googleLoading ? "Connecting..." : "Continue with Google"}
+
+          {googleLoading
+            ? "Connecting..."
+            : "Continue with Google"}
         </button>
 
         {/* LOGIN LINK */}
         <p className="text-center text-sm text-gray-600">
-          Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 font-medium hover:underline">
+          Already have an account?
+
+          <Link
+            href="/login"
+            className="text-blue-600 font-medium hover:underline ml-1"
+          >
             Login
           </Link>
         </p>
