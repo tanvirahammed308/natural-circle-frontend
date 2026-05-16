@@ -47,6 +47,7 @@ type FormData = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
+  console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
 
   const [loading, setLoading] = useState(false);
 
@@ -84,6 +85,9 @@ export default function SignupPage() {
 
       console.log("2. Firebase user created");
 
+      // 🔥 DEBUG BEFORE API
+console.log("3. BEFORE backend call");
+
       // UPDATE FIREBASE PROFILE
       await updateProfile(firebaseUser, {
         displayName: data.name,
@@ -101,7 +105,8 @@ export default function SignupPage() {
         avatar: "",
       });
 
-      console.log("5. Backend response:", response.data);
+      console.log("4. AFTER backend call");
+console.log("5. Backend response:", response.data);
 
       // SAVE USER IN REDUX
       dispatch(setUser(response.data.user));

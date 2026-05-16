@@ -11,6 +11,9 @@ const api = axios.create({
   },
 });
 
+// 🔥 DEBUG (remove later if you want)
+console.log("🔥 API BASE URL:", process.env.NEXT_PUBLIC_API_URL);
+
 api.interceptors.request.use(async (config) => {
   const user = auth.currentUser;
 
