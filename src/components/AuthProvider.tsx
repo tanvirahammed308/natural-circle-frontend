@@ -10,6 +10,8 @@ import {
 } from "@/redux/features/auth/authSlice";
 
 import { auth } from "@/lib/firebase";
+import { User } from "@/redux/features/auth/authTypes";
+
 
 export default function AuthProvider({ children }: any) {
   const dispatch = useDispatch();
@@ -23,19 +25,18 @@ export default function AuthProvider({ children }: any) {
         if (firebaseUser) {
           console.log("🔥 Firebase user:", firebaseUser.email);
 
-          const userData = {
-            _id: firebaseUser.uid,
-            firebaseUid: firebaseUser.uid,
-            name:
-              firebaseUser.displayName ||
-              firebaseUser.email?.split("@")[0] ||
-              "User",
-            email: firebaseUser.email || "",
-            role: "user",
-          };
+          
+const userData: User = {
+  _id: firebaseUser.uid,
+  firebaseUid: firebaseUser.uid,
+  name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "User",
+  email: firebaseUser.email || "",
+  role: "user",
+};
 
-          dispatch(setUser(userData));
-          localStorage.setItem("userData", JSON.stringify(userData));
+dispatch(setUser(userData));
+localStorage.setItem("userData", JSON.stringify(userData));
+          
         } else {
           dispatch(logout());
           localStorage.removeItem("userData");
